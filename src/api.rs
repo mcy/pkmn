@@ -157,28 +157,6 @@ pub trait Endpoint: DeserializeOwned + Clone + 'static {
   const NAME: &'static str;
 }
 
-#[allow(missing_docs)]
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Language {
-  pub id: u32,
-  pub name: String,
-  pub official: bool,
-  pub iso639: Option<String>,
-  pub iso3155: Option<String>,
-  pub names: Vec<Name>,
-}
-
-#[allow(missing_docs)]
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Name {
-  pub language: Resource<Language>,
-  pub name: String,
-}
-
-impl Endpoint for Language {
-  const NAME: &'static str = "language";
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 struct Page<T> {
   next: Option<String>,
