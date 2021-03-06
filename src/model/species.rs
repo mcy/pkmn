@@ -5,10 +5,15 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
+use crate::model::ability::Ability;
 use crate::model::pokedex::Pokedex;
+use crate::model::stat::Stat;
 use crate::model::text::Text;
+use crate::model::ty::Type;
+use crate::model::version::GameId;
 use crate::model::version::Generation;
 use crate::model::version::Version;
+use crate::model::version::VersionGroup;
 
 text_field!(name, flavor_text, genus);
 text_field! {
@@ -22,11 +27,173 @@ pub struct EvolutionChain;
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Pokemon;
+pub struct PalParkArea;
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PalParkArea;
+pub struct LearnMethod;
+
+///
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Move;
+
+///
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Item;
+
+/// A Pokemon varity, distinct from a [`Species`].
+///
+/// While a [`Species`] might contain something like "Raichu", there will be a
+/// [`Pokemon`] for both standard "Kanto" Raichu and for Alolan Raichu. This
+/// type roughly corresponds to a Pokemon's form.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Pokemon {
+  /// This species' numeric ID.
+  pub id: u32,
+  /// This species' API name.
+  pub name: String,
+  /// This species' ordering number. This can be used to sort species by
+  /// National Pokedex number, except that evolution families are grouped
+  /// together and sorted by stage.
+  pub order: u32,
+
+  /// The internal game ids for this Pokemon.
+  #[serde(rename = "game_indices")]
+  pub game_ids: Vec<GameId>,
+  /// Whether this is the default [`Pokemon`] for its [`Species`].
+  ///
+  /// For example, "Kanto" Raichu is the default Pokemon for the species
+  /// "Raichu", while Altered Forme Giratina is the default Pokemon for the
+  /// species "Giratina".
+  pub is_default: bool,
+
+  /// The base experience amount granted by defeating this Pokemon.
+  pub base_experience: u32,
+
+  /// This Pokemon's height, decimeters.
+  // TODO: newtype.
+  pub height: u32,
+  /// This Pokemon's weight, in hectograms.
+  // TODO: newtype.
+  pub weight: u32,
+  /// What species this Pokemon belongs to.
+  pub species: Resource<Species>,
+  /// This Pokemon's battle sprites.
+  pub sprites: Sprites,
+  /// Alternate forms this Pokemon can take.
+  pub forms: Vec<Resource<Form>>,
+
+  /// Abilities that this Pokemon can have.
+  pub abilities: Vec<ValidAbility>,
+  /// Moves that this Pokemon can have.
+  pub moves: Vec<ValidMove>,
+  /// Types this Pokemon has.
+  pub types: Vec<ValidType>,
+  /// Items this Pokemon can be found holding in the wild.
+  pub items: Vec<HeldItem>,
+  /// Base stat values for this Pokemon.
+  pub stat: Vec<BaseStat>,
+
+  /// ???
+  // TODO
+  pub location_area_encounters: String,
+}
+
+/// An ability a particular [`Pokemon`] can have.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ValidAbility {
+  /// Whether this is a hidden or "Dream World" ability.
+  pub is_hidden: bool,
+  /// Which ability slot this ability belongs to.
+  pub slot: u8,
+  /// The corresponding ability.
+  pub ability: Resource<Ability>,
+}
+
+/// A move a particular [`Pokemon`] can have.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ValidMove {
+  /// Sources this move can be learned from.
+  pub sources: Vec<ValidMoveSource>,
+  /// The corresponding move.
+  #[serde(rename = "move")]
+  pub mov: Resource<Move>,
+}
+
+/// A source for a [`ValidMove`] a particular [`Pokemon`] could have.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ValidMoveSource {
+  /// What level this move was learned at, if it is learned by level-up.
+  pub level: Option<u32>,
+  /// The method for learning this move via this source.
+  pub method: Resource<LearnMethod>,
+  /// The version group this source is valid for.
+  pub version_group: VersionGroup,
+}
+
+/// An item that a particular [`Pokemon`] can be holding in the wold.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HeldItem {
+  /// The chance that the item is being held in various versions.
+  #[serde(rename = "version_details")]
+  pub rarities: Vec<HeldItemRarity>,
+  /// The corresponding item.
+  pub item: Resource<Item>,
+}
+
+/// A rarity for a [`HeldItem`] in a particular group of versions.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HeldItemRarity {
+  /// The chance that the item is being held.
+  pub rarity: u32,
+  /// The version group this rarity is valid for.
+  pub version_group: VersionGroup,
+}
+
+/// A type a particular [`Pokemon`] has.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ValidType {
+  /// Which of the two type slots this type occupies for this Pokemon.
+  pub slot: u8,
+  /// The type in this slot.
+  #[serde(rename = "type")]
+  pub ty: Resource<Type>,
+}
+
+/// A base stat for a particular [`Pokemon`].
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BaseStat {
+  /// The number of EVs gained for defeating this Pokemon.
+  #[serde(rename = "effort")]
+  pub ev_gain: u32,
+  /// The base stat value.
+  pub base_stat: u32,
+  /// The corresponding statistic.
+  pub stat: Resource<Stat>,
+}
+
+/// A [`Pokemon`]'s spirtes.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Sprites {
+  // TODO
+}
+
+impl Endpoint for Pokemon {
+  const NAME: &'static str = "pokemon";
+}
+
+/// Form information for a [`Pokemon`].
+///
+/// A [`Pokemon`] may have multiple forms that only differ in terms of cosmetic
+/// apparence.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Form {
+  // TODO
+}
+
+impl Endpoint for Form {
+  const NAME: &'static str = "pokemon-form";
+}
 
 /// A Pokemon species.
 #[derive(Clone, Debug, Serialize, Deserialize)]

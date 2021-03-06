@@ -10,12 +10,9 @@ use crate::model::text::Erratum;
 use crate::model::text::Text;
 use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
+use crate::model::species::Pokemon;
 
 text_field!(name, flavor_text);
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Pokemon;
 
 /// A Pokemon ability.
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -9,16 +9,13 @@ use crate::api::Resource;
 use crate::model::text::Text;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
+use crate::model::species::Pokemon;
 
 text_field!(name);
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EvolutionChain;
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Pokemon;
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
