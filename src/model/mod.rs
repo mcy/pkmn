@@ -4,6 +4,7 @@
 pub mod text;
 
 pub mod ability;
+pub mod item;
 pub mod mov;
 pub mod nature;
 pub mod pokedex;
@@ -14,6 +15,8 @@ pub mod ty;
 pub mod version;
 
 pub use ability::Ability;
+pub use item::Item;
+pub use item::Tm;
 pub use mov::Move;
 pub use nature::Nature;
 pub use pokedex::Pokedex;

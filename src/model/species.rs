@@ -6,6 +6,8 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::api::Resource;
 use crate::model::ability::Ability;
+use crate::model::item::HeldRarity;
+use crate::model::item::Item;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
 use crate::model::stat::Stat;
@@ -29,10 +31,6 @@ pub struct EvolutionChain;
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PalParkArea;
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Item;
 
 /// A Pokemon varity, distinct from a [`Species`].
 ///
@@ -129,18 +127,9 @@ pub struct ValidMoveSource {
 pub struct HeldItem {
   /// The chance that the item is being held in various versions.
   #[serde(rename = "version_details")]
-  pub rarities: Vec<HeldItemRarity>,
+  pub rarities: Vec<HeldRarity>,
   /// The corresponding item.
   pub item: Resource<Item>,
-}
-
-/// A rarity for a [`HeldItem`] in a particular [`VersionGroup`].
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct HeldItemRarity {
-  /// The chance that the item is being held.
-  pub rarity: u32,
-  /// The version group this rarity is valid for.
-  pub version_group: VersionGroup,
 }
 
 /// A [`Type`] a particular [`Pokemon`] has.

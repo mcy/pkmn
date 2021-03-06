@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
+use crate::model::item::Tm;
 use crate::model::text;
 use crate::model::text::Effect;
 use crate::model::text::Text;
@@ -14,10 +15,6 @@ use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
 
 text_field!(name, flavor_text, description: Desc);
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Tm;
 
 /// A Pokemon move.
 #[derive(Clone, Debug, Serialize, Deserialize)]
