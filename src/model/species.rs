@@ -6,6 +6,7 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::api::Resource;
 use crate::model::ability::Ability;
+use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
 use crate::model::stat::Stat;
 use crate::model::text::Text;
@@ -28,14 +29,6 @@ pub struct EvolutionChain;
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PalParkArea;
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LearnMethod;
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Move;
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -99,7 +92,7 @@ pub struct Pokemon {
   pub location_area_encounters: String,
 }
 
-/// An ability a particular [`Pokemon`] can have.
+/// An [`Ability`] a particular [`Pokemon`] can have.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidAbility {
   /// Whether this is a hidden or "Dream World" ability.
@@ -110,7 +103,7 @@ pub struct ValidAbility {
   pub ability: Resource<Ability>,
 }
 
-/// A move a particular [`Pokemon`] can have.
+/// A [`Move`] a particular [`Pokemon`] can have.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidMove {
   /// Sources this move can be learned from.
@@ -131,7 +124,7 @@ pub struct ValidMoveSource {
   pub version_group: VersionGroup,
 }
 
-/// An item that a particular [`Pokemon`] can be holding in the wold.
+/// An [`Item`] that a particular [`Pokemon`] can be holding in the wold.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HeldItem {
   /// The chance that the item is being held in various versions.
@@ -141,7 +134,7 @@ pub struct HeldItem {
   pub item: Resource<Item>,
 }
 
-/// A rarity for a [`HeldItem`] in a particular group of versions.
+/// A rarity for a [`HeldItem`] in a particular [`VersionGroup`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HeldItemRarity {
   /// The chance that the item is being held.
@@ -150,7 +143,7 @@ pub struct HeldItemRarity {
   pub version_group: VersionGroup,
 }
 
-/// A type a particular [`Pokemon`] has.
+/// A [`Type`] a particular [`Pokemon`] has.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidType {
   /// Which of the two type slots this type occupies for this Pokemon.
@@ -160,7 +153,7 @@ pub struct ValidType {
   pub ty: Resource<Type>,
 }
 
-/// A base stat for a particular [`Pokemon`].
+/// A base [`Stat`] for a particular [`Pokemon`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BaseStat {
   /// The number of EVs gained for defeating this Pokemon.
@@ -172,7 +165,7 @@ pub struct BaseStat {
   pub stat: Resource<Stat>,
 }
 
-/// A [`Pokemon`]'s spirtes.
+/// A [`Pokemon`]'s default spirtes.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sprites {
   // TODO
@@ -193,6 +186,26 @@ pub struct Form {
 
 impl Endpoint for Form {
   const NAME: &'static str = "pokemon-form";
+}
+
+/// A way that a [`Pokemon`] can learn a [`Move`]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LearnMethod {
+  /// This method's numeric ID.
+  pub id: u32,
+  /// This method's API name.
+  pub name: String,
+  /// The name of this method in various languages.
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
+  /// Descriptions of this method in various languages.
+  pub descriptions: Vec<Text<Desc>>,
+  /// The version groups that this method is present in.
+  pub version_group: Vec<Resource<VersionGroup>>,
+}
+
+impl Endpoint for LearnMethod {
+  const NAME: &'static str = "move-learn-method";
 }
 
 /// A Pokemon species.

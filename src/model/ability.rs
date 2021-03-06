@@ -5,12 +5,12 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
+use crate::model::species::Pokemon;
 use crate::model::text::Effect;
 use crate::model::text::Erratum;
 use crate::model::text::Text;
 use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
-use crate::model::species::Pokemon;
 
 text_field!(name, flavor_text);
 
@@ -21,10 +21,10 @@ pub struct Ability {
   pub id: u32,
   /// This ability's API name.
   pub name: String,
-
   /// The name of this ability in various languages.
   #[serde(rename = "names")]
   pub localized_names: Vec<Text<Name>>,
+
   /// Effect text for this ability in various languages.
   #[serde(rename = "effect_entries")]
   pub effect_text: Vec<Effect>,

@@ -4,7 +4,7 @@ use pkmn::Api;
 
 fn main() -> Result<(), pkmn::api::Error> {
   let mut api = Api::with_cache(Cache::no_disk(256));
-  api.by_name::<model::Ability>("pressure")?;
+  api.by_name::<model::mov::Move>("earth-power")?;
 
   Ok(())
 }

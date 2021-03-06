@@ -6,20 +6,17 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
+use crate::model::mov::DamageClass;
+use crate::model::species::Pokemon;
 use crate::model::text::Text;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
-use crate::model::species::Pokemon;
 
 text_field!(name);
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EvolutionChain;
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DamageClass;
 
 /// A Pokemon type.
 #[derive(Clone, Debug, Serialize, Deserialize)]
