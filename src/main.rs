@@ -1,16 +1,9 @@
-//! `pkmn` is a client library for PokéAPI.
+use pkmn::Api;
+use pkmn::model::species::Species;
 
-#![deny(warnings, missing_docs, unused)]
-
-pub mod api;
-pub mod model;
-
-fn main() -> Result<(), api::Error> {
-  use crate::api::Api;
-
+fn main() -> Result<(), pkmn::api::Error> {
   let mut api = Api::new();
-
-  api.by_name::<model::species::Species>("mew")?;
+  api.by_name::<Species>("mew")?;
 
   Ok(())
 }
