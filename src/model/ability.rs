@@ -5,9 +5,9 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
-use crate::model::lang::Effect;
-use crate::model::lang::Erratum;
-use crate::model::lang::Text;
+use crate::model::text::Effect;
+use crate::model::text::Erratum;
+use crate::model::text::Text;
 use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
 

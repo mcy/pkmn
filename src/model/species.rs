@@ -5,8 +5,8 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
-use crate::model::lang::Text;
 use crate::model::pokedex::Pokedex;
+use crate::model::text::Text;
 use crate::model::version::Generation;
 use crate::model::version::Version;
 

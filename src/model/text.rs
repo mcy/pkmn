@@ -1,4 +1,4 @@
-//! Language resources, for specifying translations of names and prose.
+//! Localization structures.
 
 use std::fmt;
 use std::marker::PhantomData;
@@ -15,7 +15,7 @@ use crate::api::Resource;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
 
-/// A language that text can be translated into.
+/// A language that text can be localized for.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Language {
   /// This language's numeric ID.
@@ -34,37 +34,6 @@ pub struct Language {
 
 impl Endpoint for Language {
   const NAME: &'static str = "language";
-}
-
-/// A translation of some kind of text.
-///
-/// This struct is used to represent a large number of similar structures in the
-/// API schema.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Translation {
-  /// The translated text.
-  #[serde(alias = "name")]
-  #[serde(alias = "awesome_name")]
-  #[serde(alias = "effect")]
-  #[serde(alias = "description")]
-  #[serde(alias = "genus")]
-  #[serde(alias = "flavor_text")]
-  pub text: String,
-
-  /// A short version of the text.
-  ///
-  /// Not all translations provide a short form.
-  #[serde(alias = "short_effect")]
-  pub short: Option<String>,
-
-  /// The language this translation is in.
-  pub language: Resource<Language>,
-
-  /// The version for this particular translation.
-  ///
-  /// Not all translations are version-specific.
-  #[serde(alias = "version_group")]
-  pub version: Option<Resource<Version>>,
 }
 
 /// Localized text.
@@ -132,7 +101,7 @@ macro_rules! text_field {
     #[doc(hidden)]
     #[derive(Clone, Debug)]
     pub enum $ty {}
-    impl $crate::model::lang::TextField for $ty {
+    impl $crate::model::text::TextField for $ty {
       const NAME: &'static str = stringify!($name);
     }
   };

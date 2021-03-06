@@ -1,7 +1,7 @@
 //! Structs describing the PokéAPI data model.
 
 #[macro_use]
-pub mod lang;
+pub mod text;
 
 pub mod ability;
 pub mod nature;

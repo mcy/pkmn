@@ -6,9 +6,9 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::api::Resource;
 use crate::model::ability::Ability;
-use crate::model::lang::Text;
 use crate::model::region::Region;
 use crate::model::species::Species;
+use crate::model::text::Text;
 
 text_field!(name);
 
