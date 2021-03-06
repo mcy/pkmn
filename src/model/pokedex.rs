@@ -35,10 +35,10 @@ pub struct Pokedex {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entry {
   /// The number of this entry in the Pokedex (e.g., #001 for Bulbasaur).
-  #[serde(alias = "entry_number")]
+  #[serde(rename = "entry_number")]
   number: u32,
   /// The species this entry describes.
-  #[serde(alias = "pokemon_species")]
+  #[serde(rename = "pokemon_species")]
   species: Resource<Species>,
 }
 

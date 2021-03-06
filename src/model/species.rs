@@ -36,7 +36,7 @@ pub struct Species {
   /// This species' API name.
   pub name: String,
   /// The name of this species in various languages.
-  #[serde(alias = "names")]
+  #[serde(rename = "names")]
   pub localized_names: Vec<Text<Name>>,
 
   /// The generation this species was introduced in.

@@ -47,6 +47,19 @@ pub struct Generation {
   pub types: Vec<Resource<Type>>,
 }
 
+/// An internal id value for an entity in a particular generation of games.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GameId {
+  /// The internal id value for this entity.
+  ///
+  /// For example, Rhydon has game id `0x01` in Generation I, since it was the
+  /// first Pokemon to be designed.
+  #[serde(rename = "game_index")]
+  pub id: u32,
+  /// The generation this index is applicable for.
+  pub generation: Resource<Generation>,
+}
+
 impl Endpoint for Generation {
   const NAME: &'static str = "generation";
 }
