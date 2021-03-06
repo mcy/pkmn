@@ -8,6 +8,7 @@ pub mod nature;
 pub mod pokedex;
 pub mod region;
 pub mod species;
+pub mod stat;
 pub mod ty;
 pub mod version;
 

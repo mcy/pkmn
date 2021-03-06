@@ -10,11 +10,7 @@ use crate::model::text::Text;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
 
-text_field!(name, flavor_text, genus);
-text_field! {
-  awesome_name: Awesome,
-  description: Desc,
-}
+text_field!(name);
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -46,6 +42,7 @@ pub struct Type {
   pub game_ids: Vec<GameId>,
 
   /// The damage class this type inflicted prior to Generation IV.
+  #[serde(rename = "move_damage_class")]
   pub damage_class: Resource<DamageClass>,
 
   /// Pokemon which have this type.
