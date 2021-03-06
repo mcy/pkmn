@@ -1,4 +1,4 @@
-//! A PokeAPI client.
+//! A PokéAPI client.
 
 use std::io;
 use std::io::Read;
@@ -15,7 +15,7 @@ use crate::cache::MemoryCache;
 
 /// An API client.
 ///
-/// This type is the entrypoint for downloading information from PokeAPI. In
+/// This type is the entrypoint for downloading information from PokéAPI. In
 /// order to ensure respect of the fair-use policy, a [`Cache`]ing strategy must
 /// be provided. By default, this is a basic LRU cache.
 pub struct Api<C = MemoryCache> {
@@ -171,7 +171,7 @@ struct Page<T> {
 /// A lazily-loaded PokeAPI resource.
 ///
 /// Call [`Resource::load()`] to convert this into a `T`.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Resource<T> {
   #[allow(unused)]
   name: Option<String>,
