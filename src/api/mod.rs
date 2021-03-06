@@ -3,6 +3,7 @@
 use std::io;
 use std::io::Read;
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 use reqwest::blocking::Client;
 
@@ -10,26 +11,26 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::cache::Cache;
-use crate::cache::MemoryCache;
+mod cache;
+pub use cache::Cache;
 
 /// An API client.
 ///
 /// This type is the entrypoint for downloading information from PokéAPI. In
 /// order to ensure respect of the fair-use policy, a [`Cache`]ing strategy must
 /// be provided. By default, this is a basic LRU cache.
-pub struct Api<C = MemoryCache> {
+pub struct Api {
   base_url: String,
-  cache: C,
+  cache: Cache,
   client: Client,
 }
 
 /// Options for constructing an [`Api`].
-pub struct Options<C> {
+pub struct Options {
   /// The base URL to point the client at.
   pub base_url: String,
   /// The cache to use with the client.
-  pub cache: C,
+  pub cache: Cache,
 }
 
 /// An [`Api`] client error.
@@ -55,13 +56,11 @@ pub enum Error {
 impl Api {
   /// Creates a new [`Api`] with the default cache and URL.
   pub fn new() -> Self {
-    Self::with_cache(MemoryCache::unbounded())
+    Self::with_cache(Cache::new(128))
   }
-}
 
-impl<C> Api<C> {
   /// Creates a new [`Api`] with the given cache.
-  pub fn with_cache(cache: C) -> Self {
+  pub fn with_cache(cache: Cache) -> Self {
     Self::with_options(Options {
       base_url: "https://pokeapi.co/api/v2".to_string(),
       cache,
@@ -69,21 +68,19 @@ impl<C> Api<C> {
   }
 
   /// Creates a new [`Api`] with the given options.
-  pub fn with_options(opts: Options<C>) -> Self {
+  pub fn with_options(opts: Options) -> Self {
     Self {
       base_url: opts.base_url,
       cache: opts.cache,
       client: Client::new(),
     }
   }
-}
 
-impl<C: Cache> Api<C> {
   /// Base request-generating function, with caching.
-  fn request<T: DeserializeOwned + Clone + 'static>(
-    &self,
+  fn request<T: Serialize + DeserializeOwned + Clone + 'static>(
+    &mut self,
     url: &str,
-  ) -> Result<T, Error> {
+  ) -> Result<Rc<T>, Error> {
     if !url.starts_with(&self.base_url) {
       return Err(Error::ApiMismatch {
         expected_base: self.base_url.clone(),
@@ -92,7 +89,7 @@ impl<C: Cache> Api<C> {
     }
 
     let client = &self.client;
-    self.cache.get_or_insert(url.to_string(), |url| {
+    self.cache.get(url, || {
       let mut buf = Vec::new();
       client.get(url).send()?.read_to_end(&mut buf)?;
       Ok(serde_json::from_reader(&mut &buf[..])?)
@@ -105,9 +102,10 @@ impl<C: Cache> Api<C> {
   /// call of `next()`. If an error occurs during pagination, all following
   /// calls to `next()` will return `None`.
   pub fn all<T: Endpoint>(
-    &self,
-  ) -> impl Iterator<Item = Result<T, Error>> + '_ {
-    let mut page: Option<Page<T>> = None;
+    &mut self,
+  ) -> impl Iterator<Item = Result<Rc<T>, Error>> + '_ {
+    let mut page: Option<Rc<Page<T>>> = None;
+    let mut results = Vec::new();
     let mut had_err = false;
     std::iter::from_fn(move || {
       if had_err {
@@ -126,8 +124,9 @@ impl<C: Cache> Api<C> {
           }
         };
         match self.request::<Page<_>>(next) {
-          Ok(mut p) => {
-            p.results.reverse();
+          Ok(p) => {
+            results = p.results.clone();
+            results.reverse();
             page = Some(p)
           }
           Err(e) => {
@@ -137,22 +136,19 @@ impl<C: Cache> Api<C> {
         }
       }
 
-      page
-        .as_mut()
-        .and_then(|p| p.results.pop())
-        .map(|r| r.load(self))
+      results.pop().map(|r| r.load(self))
     })
   }
 
   /// Try to get the specific resource of type `T` with the given name.
-  pub fn by_name<T: Endpoint>(&self, name: &str) -> Result<T, Error> {
+  pub fn by_name<T: Endpoint>(&mut self, name: &str) -> Result<Rc<T>, Error> {
     self.request(&format!("{}/{}/{}", self.base_url, T::NAME, name))
   }
 }
 
 /// An endpoint type, representing a type that can be requested directly from
 /// an [`Api`].
-pub trait Endpoint: DeserializeOwned + Clone + 'static {
+pub trait Endpoint: Serialize + DeserializeOwned + Clone + 'static {
   /// The name of the endpoint, used to construct the request.
   const NAME: &'static str;
 }
@@ -184,7 +180,7 @@ pub struct Resource<T> {
 impl<T: Endpoint> Resource<T> {
   /// Perform a network request to obtain the `T` represented by this
   /// [`Resource`].
-  pub fn load<C: Cache>(&self, api: &Api<C>) -> Result<T, Error> {
+  pub fn load(&self, api: &mut Api) -> Result<Rc<T>, Error> {
     api.request(&self.url)
   }
 }
