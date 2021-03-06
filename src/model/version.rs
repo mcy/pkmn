@@ -6,9 +6,11 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::api::Resource;
 use crate::model::ability::Ability;
-use crate::model::lang::Translation;
+use crate::model::lang::Text;
 use crate::model::region::Region;
 use crate::model::species::Species;
+
+text_field!(name);
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,8 +28,8 @@ pub struct Generation {
   /// This generation's API name.
   pub name: String,
   /// The name of this generation in various languages.
-  #[serde(alias = "names")]
-  pub localized_names: Vec<Translation>,
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
 
   /// The maion region introduced in this generation.
   pub main_region: Resource<Region>,
@@ -39,7 +41,7 @@ pub struct Generation {
   /// Moves introduced in this generation.
   pub moves: Vec<Resource<Move>>,
   /// Species introduced in this generation.
-  #[serde(alias = "pokemon_species")]
+  #[serde(rename = "pokemon_species")]
   pub species: Vec<Resource<Species>>,
   /// Types introduced in this generation.
   pub types: Vec<Resource<Type>>,

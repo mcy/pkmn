@@ -1,9 +1,6 @@
-use pkmn::Api;
-use pkmn::model::species::Species;
-
 fn main() -> Result<(), pkmn::api::Error> {
-  let mut api = Api::new();
-  api.by_name::<Species>("mew")?;
+  let mut api = pkmn::Api::with_cache(pkmn::api::Cache::no_disk(256));
+  api.by_name::<pkmn::model::ability::Ability>("pressure")?;
 
   Ok(())
 }

@@ -5,10 +5,16 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
-use crate::model::lang::Translation;
-use crate::model::lang::VersionedTranslation;
+use crate::model::lang::Text;
 use crate::model::pokedex::Pokedex;
 use crate::model::version::Generation;
+use crate::model::version::Version;
+
+text_field!(name, flavor_text, genus);
+text_field! {
+  awesome_name: Awesome,
+  description: Desc,
+}
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -31,7 +37,7 @@ pub struct Species {
   pub name: String,
   /// The name of this species in various languages.
   #[serde(alias = "names")]
-  pub localized_names: Vec<Translation>,
+  pub localized_names: Vec<Text<Name>>,
 
   /// The generation this species was introduced in.
   pub generation: Resource<Generation>,
@@ -83,16 +89,16 @@ pub struct Species {
   /// This species' habitat according to the Pokedex.
   pub habitat: Resource<Habitat>,
   /// Flavor text for this species in different languages.
-  #[serde(alias = "flavor_text_entries")]
-  pub flavor_text: Vec<VersionedTranslation>,
+  #[serde(rename = "flavor_text_entries")]
+  pub flavor_text: Vec<Text<FlavorText, Version>>,
   /// This species' genus in different languages.
   ///
   /// For example, Bulbasaur is the "Seed Pokemon".
-  #[serde(alias = "genera")]
-  pub genus: Vec<Translation>,
+  #[serde(rename = "genera")]
+  pub genus: Vec<Text<Genus>>,
 
   /// The species this species evolves from.
-  #[serde(alias = "evolves_from_species")]
+  #[serde(rename = "evolves_from_species")]
   pub evolves_from: Option<Resource<Species>>,
   /// The evolution chain this species is part of.
   pub evolution_chain: Resource<EvolutionChain>,
@@ -105,7 +111,7 @@ pub struct Species {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DexEntry {
   /// The number of this entry in the Pokedex (e.g., #001 for Bulbasaur).
-  #[serde(alias = "entry_number")]
+  #[serde(rename = "entry_number")]
   pub number: u32,
   /// The pokedex this entry refers to.
   pub pokedex: Resource<Pokedex>,
@@ -143,7 +149,7 @@ pub struct GrowthRate {
   /// This growth rate's API name.
   pub name: String,
   /// Descriptions of this growth rate in different languages.
-  pub descriptions: Vec<Translation>,
+  pub descriptions: Vec<Text<Desc>>,
 
   /// The formula describing the rate at which the pokemon gains levels.
   ///
@@ -153,7 +159,7 @@ pub struct GrowthRate {
   /// previous level.
   pub levels: Vec<GrowthRateLevel>,
   /// Species that have this growth rate.
-  #[serde(alias = "pokemon_species")]
+  #[serde(rename = "pokemon_species")]
   pub species: Vec<Resource<Species>>,
 }
 
@@ -179,11 +185,11 @@ pub struct EggGroup {
   /// This egg group's API name.
   pub name: String,
   /// The name of this egg group in various languages.
-  #[serde(alias = "names")]
-  pub localized_names: Vec<Translation>,
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
 
   /// Species that have this egg group.
-  #[serde(alias = "pokemon_species")]
+  #[serde(rename = "pokemon_species")]
   pub species: Vec<Resource<Species>>,
 }
 
@@ -199,11 +205,11 @@ pub struct Color {
   /// This color's API name.
   pub name: String,
   /// The name of this color in various languages.
-  #[serde(alias = "names")]
-  pub localized_names: Vec<Translation>,
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
 
   /// Species that have this color.
-  #[serde(alias = "pokemon_species")]
+  #[serde(rename = "pokemon_species")]
   pub species: Vec<Resource<Species>>,
 }
 
@@ -219,13 +225,13 @@ pub struct Shape {
   /// This shape's API name.
   pub name: String,
   /// The name of this shape in various languages.
-  #[serde(alias = "names")]
-  pub localized_names: Vec<Translation>,
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
   /// The "scientific" name of this shape in various languages.
-  pub awesome_names: Vec<Translation>,
+  pub awesome_names: Vec<Text<Awesome>>,
 
   /// Species that have this shape.
-  #[serde(alias = "pokemon_species")]
+  #[serde(rename = "pokemon_species")]
   pub species: Vec<Resource<Species>>,
 }
 
@@ -241,11 +247,11 @@ pub struct Habitat {
   /// This habitat's API name.
   pub name: String,
   /// The name of this habitat in various languages.
-  #[serde(alias = "names")]
-  pub localized_names: Vec<Translation>,
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
 
   /// Species that have this habitat.
-  #[serde(alias = "pokemon_species")]
+  #[serde(rename = "pokemon_species")]
   pub species: Vec<Resource<Species>>,
 }
 

@@ -5,10 +5,13 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
-use crate::model::lang::Translation;
-use crate::model::lang::VersionGroupedTranslation;
+use crate::model::lang::Effect;
+use crate::model::lang::Erratum;
+use crate::model::lang::Text;
 use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
+
+text_field!(name, flavor_text);
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -23,17 +26,17 @@ pub struct Ability {
   pub name: String,
 
   /// The name of this ability in various languages.
-  #[serde(alias = "names")]
-  pub localized_names: Vec<Translation>,
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
   /// Effect text for this ability in various languages.
-  #[serde(alias = "effect_entries")]
-  pub effect_text: Vec<Translation>,
+  #[serde(rename = "effect_entries")]
+  pub effect_text: Vec<Effect>,
   /// Errata for this ability's effect text through game versions.
-  #[serde(alias = "effect_changes")]
+  #[serde(rename = "effect_changes")]
   pub errata: Vec<Erratum>,
   /// Flavor text for this ability in various languages.
-  #[serde(alias = "flavor_text_entries")]
-  pub flavor_text: Vec<VersionGroupedTranslation>,
+  #[serde(rename = "flavor_text_entries")]
+  pub flavor_text: Vec<Text<FlavorText, VersionGroup>>,
 
   /// Whether this ability is actually used in main-series games.
   pub is_main_series: bool,
@@ -41,25 +44,15 @@ pub struct Ability {
   pub generation: Resource<Generation>,
 
   /// Pokemon which can have this ability.
-  #[serde(alias = "pokemon")]
-  pub abilitees: Vec<Abilitee>,
-}
-
-/// A change in an ability's effect, described in prose.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Erratum {
-  /// The effect of this ability, listed in various languages.
-  #[serde(alias = "effect_entries")]
-  pub effect_text: Vec<Translation>,
-  /// The version for this particular erratum.
-  pub version_group: Resource<VersionGroup>,
+  #[serde(rename = "pokemon")]
+  pub users: Vec<User>,
 }
 
 /// A Pokemon that *can* have a particular ability.
 ///
 /// This struct also describes how that ability is distributed.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Abilitee {
+pub struct User {
   /// Whether this is a hidden or "Dream World" ability.
   pub is_hidden: bool,
   /// Which ability slot this ability belongs to.
