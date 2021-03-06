@@ -16,9 +16,8 @@ pub use cache::Cache;
 
 /// An API client.
 ///
-/// This type is the entrypoint for downloading information from PokéAPI. In
-/// order to ensure respect of the fair-use policy, a [`Cache`]ing strategy must
-/// be provided. By default, this is a basic LRU cache.
+/// This type is the entrypoint for downloading information from PokéAPI.
+/// Requests are memoized using a hybrid memory/disk [`Cache`].
 pub struct Api {
   base_url: String,
   cache: Cache,
