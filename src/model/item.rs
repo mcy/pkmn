@@ -12,10 +12,10 @@ use crate::model::text::Effect;
 use crate::model::text::Text;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
-use crate::model::version::VersionGroup;
 use crate::model::version::Version;
+use crate::model::version::VersionGroup;
 
-text_field!(name, flavor_text); 
+text_field!(name, flavor_text);
 text_field! {
   description: Desc,
   effect: EffectText,

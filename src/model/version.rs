@@ -6,19 +6,14 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::api::Resource;
 use crate::model::ability::Ability;
+use crate::model::mov::Move;
+use crate::model::pokedex::Pokedex;
 use crate::model::region::Region;
 use crate::model::species::Species;
 use crate::model::text::Text;
+use crate::model::ty::Type;
 
 text_field!(name);
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Move;
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Type;
 
 /// A generation of Pokemon games.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -64,10 +59,44 @@ impl Endpoint for Generation {
   const NAME: &'static str = "generation";
 }
 
-///
+/// A group of versions that are very similar, such as Ruby and Sapphire, or
+/// X and Y.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct VersionGroup {}
+pub struct VersionGroup {
+  /// This version group's numeric ID.
+  pub id: u32,
+  /// This version group's API name.
+  pub name: String,
+  /// Order of game groups by release date (roughly).
+  pub order: u32,
+  /// The generation this version was released in.
+  pub generation: Resource<Generation>,
+  /// The regions that can be visited in this version.
+  pub regions: Vec<Resource<Region>>,
+  /// The Pokedexes available in this version group.
+  pub pokedexes: Vec<Resource<Pokedex>>,
+  /// The versions that make up this group.
+  pub versions: Vec<Resource<Version>>,
+}
 
-///
+impl Endpoint for VersionGroup {
+  const NAME: &'static str = "version-group";
+}
+
+/// A Pokemon game version, such as Red, Diamond, or LeafGreen.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Version {}
+pub struct Version {
+  /// This version's numeric ID.
+  pub id: u32,
+  /// This version's API name.
+  pub name: String,
+  /// The name of this version in various languages.
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
+  /// Which version group this version is part of.
+  pub version_group: Resource<VersionGroup>,
+}
+
+impl Endpoint for Version {
+  const NAME: &'static str = "version";
+}
