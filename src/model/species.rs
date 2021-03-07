@@ -6,6 +6,7 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::api::Resource;
 use crate::model::ability::Ability;
+use crate::model::evolution::Family;
 use crate::model::item::HeldRarity;
 use crate::model::item::Item;
 use crate::model::mov::Move;
@@ -270,7 +271,7 @@ pub struct Species {
   #[serde(rename = "evolves_from_species")]
   pub evolves_from: Option<Resource<Species>>,
   /// The evolution chain this species is part of.
-  pub evolution_chain: Resource<EvolutionChain>,
+  pub evolution_chain: Resource<Family>,
 
   /// The places this species can be encountered in the Pal Park.
   pub pal_park_encounters: Vec<PalParkEncounter>,

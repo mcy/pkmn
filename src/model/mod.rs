@@ -4,6 +4,7 @@
 pub mod text;
 
 pub mod ability;
+pub mod evolution;
 pub mod item;
 pub mod location;
 pub mod mov;

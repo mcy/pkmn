@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
+use crate::model::evolution::Family;
 use crate::model::mov::Move;
 use crate::model::species::Pokemon;
 use crate::model::text::Effect;
@@ -20,10 +21,6 @@ text_field! {
   description: Desc,
   effect: EffectText,
 }
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EvolutionChain;
 
 /// An item of some kind.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -60,7 +57,7 @@ pub struct Item {
   /// If present, this item can be used to produce a special baby offspring.
   ///
   /// For example, a Lax Incense can be used to breed a Wynaut from a Wobbufet.
-  pub baby_trigger_for: Option<EvolutionChain>,
+  pub baby_trigger_for: Option<Family>,
   /// Pokemon that can potentially hold this item.
   pub holders: Vec<Holder>,
 
