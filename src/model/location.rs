@@ -176,11 +176,11 @@ impl Endpoint for EncounterMethod {
 /// A condition for an encounter to be possible.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EncounterCondition {
-  /// This method's numeric ID.
+  /// This conditon's numeric ID.
   pub id: u32,
-  /// This method's API name.
+  /// This conditon's API name.
   pub name: String,
-  /// The name of this method in various languages.
+  /// The name of this conditon in various languages.
   #[serde(rename = "names")]
   pub localized_names: Vec<Text<Name>>,
   /// Values this condition can take on.
@@ -194,11 +194,11 @@ impl Endpoint for EncounterCondition {
 /// A condition for an encounter to be possible.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EncounterConditionValue {
-  /// This method's numeric ID.
+  /// This value's numeric ID.
   pub id: u32,
-  /// This method's API name.
+  /// This value's API name.
   pub name: String,
-  /// The name of this method in various languages.
+  /// The name of this value in various languages.
   #[serde(rename = "names")]
   pub localized_names: Vec<Text<Name>>,
   /// The condition this value is for.

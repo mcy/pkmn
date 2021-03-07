@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
+use crate::model::contest;
 use crate::model::item::Tm;
 use crate::model::text;
 use crate::model::text::Effect;
@@ -66,14 +67,20 @@ pub struct Move {
   /// Errata for this move's effect text through game versions.
   #[serde(rename = "effect_changes")]
   pub effect_errata: Vec<text::Erratum>,
-  /// Flavor text for this ability in various languages.
+  /// Flavor text for this move in various languages.
   #[serde(rename = "flavor_text_entries")]
   pub flavor_text: Vec<Text<FlavorText, VersionGroup>>,
 
   /// Errata for move properties through game versions.
   #[serde(rename = "past_values")]
   pub errata: Vec<Erratum>,
-  // TODO: Contest data.
+
+  /// This move's type during a Contest.
+  pub contest_type: Resource<contest::Type>,
+  /// This move's effect during a Contest.
+  pub contest_effect: Resource<contest::Effect>,
+  /// This move's effect during a Super Contest.
+  pub super_contest_effect: Resource<contest::SuperEffect>,
 }
 
 /// Metadata for a particular [`Move`].

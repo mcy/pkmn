@@ -4,6 +4,8 @@
 pub mod text;
 
 pub mod ability;
+pub mod berry;
+pub mod contest;
 pub mod evolution;
 pub mod item;
 pub mod location;

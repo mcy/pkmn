@@ -5,15 +5,12 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
+use crate::model::berry::Flavor;
 use crate::model::stat::pokeathalon;
 use crate::model::stat::Stat;
 use crate::model::text::Text;
 
 text_field!(name, description: Desc);
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Flavor;
 
 /// A Pokemon nature.
 #[derive(Clone, Debug, Serialize, Deserialize)]

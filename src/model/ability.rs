@@ -10,7 +10,7 @@ use crate::model::text::Effect;
 use crate::model::text::Erratum;
 use crate::model::text::Text;
 use crate::model::version::Generation;
-use crate::model::version::VersionGroup;
+use crate::model::version::Version;
 
 text_field!(name, flavor_text);
 
@@ -33,7 +33,7 @@ pub struct Ability {
   pub errata: Vec<Erratum>,
   /// Flavor text for this ability in various languages.
   #[serde(rename = "flavor_text_entries")]
-  pub flavor_text: Vec<Text<FlavorText, VersionGroup>>,
+  pub flavor_text: Vec<Text<FlavorText, Version>>,
 
   /// Whether this ability is actually used in main-series games.
   pub is_main_series: bool,
