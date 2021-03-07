@@ -1,6 +1,8 @@
 //! Evolution, ways that different Pokemon within an evolution family are
 //! related.
 
+use std::convert::TryFrom;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -85,8 +87,8 @@ pub struct Condition {
   pub known_move_type: Option<Resource<Type>>,
 
   /// A relation between Attack and Defense required during the trigger.
-  // TODO: newtype
-  pub relative_physical_stats: i8,
+  #[serde(rename = "relative_physical_stats")]
+  pub relative_stats: RelativeStats,
 
   /// The time of day it must be during the trigger.
   // TODO: newtype
@@ -96,6 +98,56 @@ pub struct Condition {
   pub trade_species: Option<Resource<Species>>,
   /// Whether the physical game must be held upside-down during the trigger.
   pub turn_upside_down: bool,
+}
+
+/// A requirement on the relative values of a Pokemon's Attack and Defense
+/// statistics.
+#[derive(
+  Copy,
+  Clone,
+  Debug,
+  PartialEq,
+  Eq,
+  Ord,
+  PartialOrd,
+  Hash,
+  Serialize,
+  Deserialize,
+)]
+#[allow(missing_docs)]
+#[serde(into = "i8")]
+#[serde(try_from = "i8")]
+pub enum RelativeStats {
+  AttackGreater,
+  DefenceGreater,
+  Equal,
+}
+
+impl From<RelativeStats> for i8 {
+  fn from(r: RelativeStats) -> Self {
+    match r {
+      RelativeStats::AttackGreater => 1,
+      RelativeStats::DefenceGreater => -1,
+      RelativeStats::Equal => 0,
+    }
+  }
+}
+
+#[doc(hidden)]
+#[derive(Debug, thiserror::Error)]
+#[error("value must be in range -1..=1")]
+pub struct RelativeStatsFromError;
+
+impl TryFrom<i8> for RelativeStats {
+  type Error = RelativeStatsFromError;
+  fn try_from(x: i8) -> Result<Self, Self::Error> {
+    match x {
+      1 => Ok(Self::AttackGreater),
+      -1 => Ok(Self::DefenceGreater),
+      0 => Ok(Self::Equal),
+      _ => Err(RelativeStatsFromError),
+    }
+  }
 }
 
 impl Endpoint for Family {

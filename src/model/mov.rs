@@ -106,10 +106,8 @@ pub struct Meta {
   /// applicable.
   pub max_turns: Option<u32>,
 
-  /// Drain healing (if positive) or recoil (if negative) as a percent of
-  /// damage done.
-  // TODO: enum
-  pub drain: Option<i32>,
+  /// Drain healing/recoil for this move.
+  pub drain: Option<DrainEffect>,
   /// Health recovered by this move as a precent of the user's HP.
   pub healing: Option<Percent>,
 
@@ -124,6 +122,36 @@ pub struct Meta {
   pub flinch_chance: Percent,
   /// The chance that a stat change will happen in the target.
   pub stat_chance: Percent,
+}
+
+/// A move effect that results in a percentage of the move's damage being
+/// applied to the user.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+#[serde(into = "i8")]
+#[serde(from = "i8")]
+pub enum DrainEffect {
+  Heal(Percent),
+  Recoil(Percent),
+}
+
+impl From<DrainEffect> for i8 {
+  fn from(d: DrainEffect) -> Self {
+    match d {
+      DrainEffect::Heal(x) => x.into_inner() as i8,
+      DrainEffect::Recoil(x) => -(x.into_inner() as i8),
+    }
+  }
+}
+
+impl From<i8> for DrainEffect {
+  fn from(x: i8) -> Self {
+    if x >= 0 {
+      Self::Heal(Percent::new(x as u8))
+    } else {
+      Self::Recoil(Percent::new(-x.min(-100) as u8))
+    }
+  }
 }
 
 /// An erratum for information about a [`Move`].

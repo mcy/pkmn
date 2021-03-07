@@ -1,5 +1,7 @@
 //! Pokemon species, the root structures for Pokemon information.
 
+use std::convert::TryFrom;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -56,12 +58,10 @@ pub struct Pokemon {
   /// The base experience amount granted by defeating this Pokemon.
   pub base_experience: u32,
 
-  /// This Pokemon's height, decimeters.
-  // TODO: newtype.
-  pub height: u32,
-  /// This Pokemon's weight, in hectograms.
-  // TODO: newtype.
-  pub weight: u32,
+  /// This Pokemon's height.
+  pub height: Height,
+  /// This Pokemon's weight.
+  pub weight: Weight,
   /// What species this Pokemon belongs to.
   pub species: Resource<Species>,
   /// This Pokemon's battle sprites.
@@ -83,6 +83,49 @@ pub struct Pokemon {
   /// ???
   // TODO
   pub location_area_encounters: String,
+}
+
+/// A Pokemon's height.
+///
+/// The underlying value is in tenths of a meter (decimeters), but this type
+/// provides safe access in a variety of units.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct Height(u32);
+
+impl Height {
+  /// Returns the length in meters.
+  pub fn meters(self) -> f64 {
+    self.0 as f64 / 10.0
+  }
+
+  /// Returns the length in feet and inches.
+  pub fn feet_inches(self) -> (u32, u32) {
+    // There are 3.93 inches in a decimeter.
+    let inches = (self.0 as f64 * 3.93) as u32;
+    (inches / 12, inches % 12)
+  }
+}
+
+/// A Pokemon's weight.
+///
+/// The underlying value is in tenths of a kilogram (hectograms), but this type
+/// provides safe access in a variety of units.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct Weight(u32);
+
+impl Weight {
+  /// Returns the weight in kilograms.
+  pub fn kilograms(self) -> f64 {
+    self.0 as f64 / 10.0
+  }
+
+  /// Returns the weight in pounds.
+  pub fn pounds(self) -> f64 {
+    // There are 0.22 pounds in a hectogram.
+    self.0 as f64 * 0.22
+  }
 }
 
 /// An [`Ability`] a particular [`Pokemon`] can have.
@@ -212,11 +255,9 @@ pub struct Species {
   /// Varieties which exist whithin this species.
   pub varieties: Vec<Variety>,
 
-  /// This species' gender rate, given in eighths of a chance to be female.
-  ///
-  /// -1 indicates a genderless species.
-  // TODO: an enum.
-  pub gender_rate: i8,
+  /// This species' gender ratio.
+  #[serde(rename = "gender_ratio")]
+  pub gender_ratio: GenderRatio,
   /// Whether this species exhibits sexual dimorphism.
   pub has_gender_differences: bool,
   /// The initial hatch counter for an egg of this species.
@@ -269,6 +310,78 @@ pub struct Species {
 
   /// The places this species can be encountered in the Pal Park.
   pub pal_park_encounters: Vec<PalParkEncounter>,
+}
+
+/// A gender ratio for a species.
+#[derive(
+  Copy,
+  Clone,
+  Debug,
+  PartialEq,
+  Eq,
+  Ord,
+  PartialOrd,
+  Hash,
+  Serialize,
+  Deserialize,
+)]
+#[allow(missing_docs)]
+#[serde(into = "i8")]
+#[serde(try_from = "i8")]
+pub enum GenderRatio {
+  /// All-male species.
+  AllMale,
+  /// One female for every seven males.
+  SomeFemales,
+  /// One female for every three males.
+  FewFemales,
+  /// Even gender ratio.
+  Even,
+  /// One male for every three females.
+  SomeMales,
+  /// One male for every seven females.
+  FewMales,
+  /// All-female species.
+  AllFemale,
+  /// Genderless species.
+  Genderless,
+}
+
+impl From<GenderRatio> for i8 {
+  fn from(r: GenderRatio) -> Self {
+    match r {
+      GenderRatio::AllMale => 0,
+      GenderRatio::SomeFemales => 1,
+      GenderRatio::FewFemales => 2,
+      GenderRatio::Even => 4,
+      GenderRatio::SomeMales => 6,
+      GenderRatio::FewMales => 7,
+      GenderRatio::AllFemale => 8,
+      GenderRatio::Genderless => -1,
+    }
+  }
+}
+
+#[doc(hidden)]
+#[derive(Debug, thiserror::Error)]
+#[error("value must be in range -1..=8")]
+pub struct GenderRatioFromError;
+
+impl TryFrom<i8> for GenderRatio {
+  type Error = GenderRatioFromError;
+  fn try_from(x: i8) -> Result<Self, Self::Error> {
+    match x {
+      0 => Ok(Self::AllMale),
+      1 => Ok(Self::FewFemales),
+      2 => Ok(Self::SomeFemales),
+      4 => Ok(Self::Even),
+      6 => Ok(Self::SomeMales),
+      7 => Ok(Self::FewMales),
+      8 => Ok(Self::AllFemale),
+      -1 => Ok(Self::Genderless),
+      _ => Err(GenderRatioFromError),
+    }
+  }
 }
 
 /// An entry in a Pokedex for a particular species.
