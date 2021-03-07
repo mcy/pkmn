@@ -9,6 +9,7 @@ use crate::model::berry::Flavor;
 use crate::model::stat::pokeathalon;
 use crate::model::stat::Stat;
 use crate::model::text::Text;
+use crate::model::Percent;
 
 text_field!(name, description: Desc);
 
@@ -61,9 +62,9 @@ pub struct PokeathalonStatEffect {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BattlePalacePreference {
   /// Percentage chance of choosing this preference when under half HP.
-  pub low_hp_preference: u32,
+  pub low_hp_preference: Percent,
   /// Percentage chance of choosing this preference when over half HP.
-  pub high_hp_preference: u32,
+  pub high_hp_preference: Percent,
   /// The style this preference results in.
   #[serde(rename = "move_battle_style")]
   pub style: Resource<BattlePlaceStyle>,

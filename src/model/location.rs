@@ -12,6 +12,7 @@ use crate::model::version::GameId;
 use crate::model::version::Generation;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
+use crate::model::Percent;
 
 text_field!(name);
 
@@ -108,7 +109,7 @@ pub struct VersionedEncounters {
   /// The version this encounter is relevant for.
   pub version: Resource<Version>,
   /// The percentage of the total encounter potential this encounter represents.
-  pub max_chance: u32,
+  pub max_chance: Percent,
   /// Ways this encounter can play out, i.e., what combination of method
   /// and condition result in what levels and rate observed?
   pub encounters: Vec<Encounter>,
@@ -126,7 +127,7 @@ pub struct Encounter {
   /// Method by which this encounter occurs.
   pub method: Resource<EncounterMethod>,
   /// The chance that this encounter will occur.
-  pub chance: u32,
+  pub chance: Percent,
 }
 
 /// The chance that attempting a particular [`EncounterMethod`] in a particular
@@ -145,7 +146,7 @@ pub struct EncounterMethodRate {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EncounterMethodRateVersion {
   /// The chance for this encounter method to succeed.
-  pub rate: u32,
+  pub rate: Percent,
   /// The version this rate is valid for.
   pub versions: Resource<Version>,
 }

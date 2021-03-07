@@ -15,6 +15,7 @@ use crate::model::version::GameId;
 use crate::model::version::Generation;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
+use crate::model::Percent;
 
 text_field!(name, flavor_text);
 text_field! {
@@ -93,7 +94,7 @@ pub struct Holder {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HeldRarity {
   /// The chance that the item is being held.
-  pub rarity: u32,
+  pub rarity: Percent,
   /// The version group this rarity is valid for.
   pub version: Resource<Version>,
 }

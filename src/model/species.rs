@@ -18,6 +18,7 @@ use crate::model::version::GameId;
 use crate::model::version::Generation;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
+use crate::model::Percent;
 
 text_field!(name, flavor_text, genus);
 text_field! {
@@ -293,7 +294,7 @@ pub struct PalParkEncounter {
   /// The base score given when the player catches a Pokemon in this encounter.
   pub base_score: u32,
   /// The base rate for catching pokemon in this encounter.
-  pub rate: u32,
+  pub rate: Percent,
   /// The Pal Park area for this encounter.
   pub area: Resource<PalParkArea>,
 }

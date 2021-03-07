@@ -17,9 +17,14 @@ pub mod stat;
 pub mod ty;
 pub mod version;
 
+mod data;
+pub use data::*;
+
 pub use ability::Ability;
+pub use berry::Berry;
 pub use item::Item;
 pub use item::Tm;
+pub use location::Location;
 pub use location::Region;
 pub use mov::Move;
 pub use nature::Nature;

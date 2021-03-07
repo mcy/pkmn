@@ -14,6 +14,7 @@ use crate::model::text::Text;
 use crate::model::ty::Type;
 use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
+use crate::model::Percent;
 
 text_field!(name, flavor_text, description: Desc);
 
@@ -57,7 +58,7 @@ pub struct Move {
   pub ty: Resource<Type>,
 
   /// The chance this move's secondary effect will occur.
-  pub effect_chance: u32,
+  pub effect_chance: Percent,
   /// Metadata for this move.
   pub meta: Meta,
 
@@ -110,19 +111,19 @@ pub struct Meta {
   // TODO: enum
   pub drain: Option<i32>,
   /// Health recovered by this move as a precent of the user's HP.
-  pub healing: Option<i32>,
+  pub healing: Option<Percent>,
 
   /// This move's critical hit bonus.
   pub crit_rate: Option<u32>,
 
   /// The chance that this move will inflict status.
   #[serde(rename = "ailment_chance")]
-  pub status_chance: u32,
+  pub status_chance: Percent,
   /// The chance that this move will cause the target to flinch, if it moves
   /// after the user.
-  pub flinch_chance: u32,
+  pub flinch_chance: Percent,
   /// The chance that a stat change will happen in the target.
-  pub stat_chance: u32,
+  pub stat_chance: Percent,
 }
 
 /// An erratum for information about a [`Move`].
@@ -140,7 +141,7 @@ pub struct Erratum {
   pub ty: Resource<Type>,
 
   /// The chance this move's secondary effect will occur.
-  pub effect_chance: u32,
+  pub effect_chance: Percent,
 
   /// Effect text for this move in various languages.
   #[serde(rename = "effect_entries")]
