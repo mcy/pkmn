@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::api::Resource;
-use crate::model::region::Region;
+use crate::model::location::Region;
 use crate::model::species::Species;
 use crate::model::text::Text;
 use crate::model::version::VersionGroup;
