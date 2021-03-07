@@ -7,6 +7,7 @@ use crate::api::Endpoint;
 use crate::api::Resource;
 use crate::model::pokedex::Pokedex;
 use crate::model::species::Pokemon;
+use crate::model::species::Species;
 use crate::model::text::Text;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
@@ -208,4 +209,32 @@ pub struct EncounterConditionValue {
 
 impl Endpoint for EncounterConditionValue {
   const NAME: &'static str = "encounter-condition-value";
+}
+
+/// An area within the Pal Park.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PalParkArea {
+  /// This area's numeric ID.
+  pub id: u32,
+  /// This area's API name.
+  pub name: String,
+  /// The name of this area in various languages.
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
+
+  /// Encounters that can occur in this area.
+  #[serde(rename = "pokemon_encounters")]
+  pub encounters: Vec<PalParkEncounter>,
+}
+
+/// An encounter within the Pal Park.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PalParkEncounter {
+  /// The score given when this Pokemon is caught at the Pal Park.
+  pub base_score: u32,
+  /// The base rate for this encounter.
+  pub rate: Percent,
+  /// The species being encountered.
+  #[serde(rename = "pokemon_species")]
+  pub species: Vec<Resource<Species>>,
 }

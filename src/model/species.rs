@@ -9,6 +9,7 @@ use crate::model::ability::Ability;
 use crate::model::evolution::Family;
 use crate::model::item::HeldRarity;
 use crate::model::item::Item;
+use crate::model::location::PalParkArea;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
 use crate::model::stat::Stat;
@@ -25,14 +26,6 @@ text_field! {
   awesome_name: Awesome,
   description: Desc,
 }
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EvolutionChain;
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PalParkArea;
 
 /// A Pokemon varity, distinct from a [`Species`].
 ///
