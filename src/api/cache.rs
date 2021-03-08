@@ -8,7 +8,7 @@ use std::hash::Hasher;
 use std::mem::MaybeUninit;
 use std::path::PathBuf;
 use std::ptr;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::api::Error;
 
@@ -98,13 +98,13 @@ impl Cache {
   /// cache. If both of those fails, `f` is called to perform the computation.
   ///
   /// Any errors produced by `f` will bubble up to the caller.
-  pub(in crate::api) fn get<V: 'static>(
+  pub(in crate::api) fn get<V: Send + Sync + 'static>(
     &mut self,
     k: &str,
     deserialize: impl FnOnce(Vec<u8>) -> Result<V, Error>,
     serialize: impl FnOnce(&V) -> Result<Vec<u8>, Error> + 'static,
     compute: impl FnOnce() -> Result<V, Error>,
-  ) -> Result<Rc<V>, Error> {
+  ) -> Result<Arc<V>, Error> {
     if let Some(node) = self.map.get_mut(&WeakString(k)) {
       // Pull a node out of the memory cache if one is present.
       unsafe {
@@ -113,21 +113,21 @@ impl Cache {
         self.detach(node_ptr);
         self.attach(node_ptr);
 
-        let rc = Rc::clone(&*(*node_ptr).val.as_ptr());
-        return Ok(Rc::downcast(rc).expect("wrong type in FileCache"));
+        let rc = Arc::clone(&*(*node_ptr).val.as_ptr());
+        return Ok(Arc::downcast(rc).expect("wrong type in FileCache"));
       }
     }
 
     let val = match self.unearth(k, deserialize)? {
       Some(x) => x,
       None => {
-        let val = Rc::new(compute()?);
+        let val = Arc::new(compute()?);
         self.bury(k, &*val, serialize)?;
         val
       }
     };
 
-    let clone = Rc::clone(&val) as Rc<dyn Any>;
+    let clone = Arc::clone(&val) as Arc<(dyn Any + Send + Sync + 'static)>;
     self.insert(k.to_string(), clone)?;
     Ok(val)
   }
@@ -157,7 +157,7 @@ impl Cache {
     &self,
     k: &str,
     deserialize: impl FnOnce(Vec<u8>) -> Result<V, Error>,
-  ) -> Result<Option<Rc<V>>, Error> {
+  ) -> Result<Option<Arc<V>>, Error> {
     let mut path = match &self.file_root {
       Some(path) => {
         if !path.exists() {
@@ -176,11 +176,11 @@ impl Cache {
     }
 
     let val = deserialize(fs::read(path)?)?;
-    Ok(Some(Rc::new(val)))
+    Ok(Some(Arc::new(val)))
   }
 
   /// Inserts a type-erased value.
-  fn insert(&mut self, k: String, v: Rc<dyn Any>) -> Result<(), Error> {
+  fn insert(&mut self, k: String, v: Arc<(dyn Any + Send + Sync + 'static)>) -> Result<(), Error> {
     // If the capacity is zero, do nothing.
     if self.capacity == 0 {
       return Ok(());
@@ -263,14 +263,14 @@ impl Drop for Cache {
 
 struct Entry {
   key: MaybeUninit<String>,
-  val: MaybeUninit<Rc<dyn Any>>,
+  val: MaybeUninit<Arc<(dyn Any + Send + Sync + 'static)>>,
 
   prev: *mut Entry,
   next: *mut Entry,
 }
 
 impl Entry {
-  fn new(k: String, v: Rc<dyn Any>) -> Self {
+  fn new(k: String, v: Arc<(dyn Any + Send + Sync + 'static)>) -> Self {
     Self {
       key: MaybeUninit::new(k),
       val: MaybeUninit::new(v),

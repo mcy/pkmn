@@ -3,7 +3,7 @@
 use std::io;
 use std::io::Read;
 use std::marker::PhantomData;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use reqwest::blocking::Client;
 
@@ -72,7 +72,7 @@ impl Api {
   }
 
   /// Base request-generating function, with caching.
-  fn request_blob(&mut self, url: &str) -> Result<Rc<Box<[u8]>>, Error> {
+  fn request_blob(&mut self, url: &str) -> Result<Arc<Box<[u8]>>, Error> {
     let client = &self.client;
     self.cache.get(
       url,
@@ -87,10 +87,10 @@ impl Api {
   }
 
   /// Base request-generating function, with caching.
-  fn request_json<T: Serialize + DeserializeOwned + Clone + 'static>(
+  fn request_json<T: Serialize + DeserializeOwned + Send + Sync + 'static>(
     &mut self,
     url: &str,
-  ) -> Result<Rc<T>, Error> {
+  ) -> Result<Arc<T>, Error> {
     let client = &self.client;
     self.cache.get(
       url,
@@ -115,8 +115,8 @@ impl Api {
   pub fn all<T: Endpoint>(
     &mut self,
     per_page: usize,
-  ) -> impl Iterator<Item = Result<Rc<T>, Error>> + '_ {
-    let mut page: Option<Rc<Page<T>>> = None;
+  ) -> impl Iterator<Item = Result<Arc<T>, Error>> + '_ {
+    let mut page: Option<Arc<Page<T>>> = None;
     let mut results = Vec::new();
     let mut had_err = false;
     std::iter::from_fn(move || {
@@ -151,14 +151,14 @@ impl Api {
   }
 
   /// Try to get the specific resource of type `T` with the given name.
-  pub fn by_name<T: Endpoint>(&mut self, name: &str) -> Result<Rc<T>, Error> {
+  pub fn by_name<T: Endpoint>(&mut self, name: &str) -> Result<Arc<T>, Error> {
     self.request_json(&format!("{}/{}/{}", self.base_url, T::NAME, name))
   }
 }
 
 /// An endpoint type, representing a type that can be requested directly from
 /// an [`Api`].
-pub trait Endpoint: Serialize + DeserializeOwned + Clone + 'static {
+pub trait Endpoint: Serialize + DeserializeOwned + Clone + Send + Sync + 'static {
   /// The name of the endpoint, used to construct the request.
   const NAME: &'static str;
 }
@@ -196,7 +196,7 @@ impl Blob {
   }
 
   /// Performs a network request to lazily evaluate this blob.
-  pub fn load(&self, api: &mut Api) -> Result<Rc<Box<[u8]>>, Error> {
+  pub fn load(&self, api: &mut Api) -> Result<Arc<Box<[u8]>>, Error> {
     api.request_blob(&self.url)
   }
 }
@@ -229,9 +229,9 @@ impl<T> Lazy<T> {
   }
 }
 
-impl<T: Serialize + DeserializeOwned + Clone + 'static> Lazy<T> {
+impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Lazy<T> {
   /// Performs a network request to lazily evaluate this object.
-  pub fn load(&self, api: &mut Api) -> Result<Rc<T>, Error> {
+  pub fn load(&self, api: &mut Api) -> Result<Arc<T>, Error> {
     api.request_json(&self.url)
   }
 }

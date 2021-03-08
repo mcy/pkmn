@@ -4,7 +4,7 @@
 
 use std::io;
 use std::iter;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use pkmn::api;
 use pkmn::api::Cache;
@@ -39,7 +39,7 @@ use tui::Terminal;
 
 pub struct PokedexEntry {
   number: u32,
-  species: Rc<Species>,
+  species: Arc<Species>,
 }
 
 pub enum Pane {
