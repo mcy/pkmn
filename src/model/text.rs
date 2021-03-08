@@ -11,9 +11,11 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
+use crate::model::resource::NameOf;
+use crate::model::resource::NamedResource;
+use crate::model::resource::Resource;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
-use crate::model::Resource;
 
 /// A language that text can be localized for.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -21,7 +23,7 @@ pub struct Language {
   /// This language's numeric ID.
   pub id: u32,
   /// This language's API name.
-  pub name: String,
+  pub name: NameOf<Self>,
   /// The name of this language in various languages.
   #[serde(rename = "names")]
   pub localized_names: Vec<Text<Name>>,
@@ -36,6 +38,38 @@ pub struct Language {
 
 impl Endpoint for Language {
   const NAME: &'static str = "language";
+}
+
+well_known! {
+  /// A name for a [`Language`].
+  pub enum LanguageName for Language {
+    /// The Japanese language, in hiragana.
+    JapaneseHiragana => "ja-Hrkt",
+    /// The Japanese language, reomaized into Latin script.
+    JapaneseRoomaji => "roomaji",
+    /// The Korean language, in hangul.
+    Korean => "ko",
+    /// The Chinese language, in traditional hanzi.
+    ChineseTraditional => "zh-Hant",
+    /// The French language, in Latin script.
+    French => "fr",
+    /// The German language, in Latin script.
+    German => "de",
+    /// The Spanish language, in Latin script.
+    Spanish => "es",
+    /// The French language, in Latin script.
+    Italian => "it",
+    /// The English language, in Latin script.
+    English => "en",
+    /// The Czech language, in Latin script.
+    Czech => "cs",
+    /// The Japanese language, in kanji.
+    JapaneseKanji => "ja",
+    /// The Chinese language, in simplified hanzi.
+    ChineseSimplieifed => "zh-Hans",
+    /// The Portuguese language, in Latin script.
+    Portuguese => "pt-BR",
+  }
 }
 
 /// Localized text.
@@ -54,7 +88,7 @@ pub struct Text<Field, Version: VersionField = ()> {
   pub text: String,
 
   /// The language this localization is for.
-  pub language: Resource<Language>,
+  pub language: NamedResource<Language>,
 
   /// The version this localization applies for, if any.
   pub version: Version::TYPE,
@@ -77,7 +111,7 @@ pub struct Effect {
   pub abridged: Option<String>,
 
   /// The language this localization is for.
-  pub language: Resource<Language>,
+  pub language: NamedResource<Language>,
 }
 
 /// A change in an [`Effect`] with a [`VersionGroup`] attached.
