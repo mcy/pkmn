@@ -9,7 +9,7 @@ use crate::model::evolution::Family;
 use crate::model::mov::Move;
 use crate::model::species::Pokemon;
 use crate::model::text::Effect;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
 use crate::model::version::Version;
@@ -17,7 +17,7 @@ use crate::model::version::VersionGroup;
 use crate::model::Percent;
 use crate::model::Resource;
 
-text_field!(name, flavor_text);
+text_field!(flavor_text);
 text_field! {
   description: Desc,
   effect: EffectText,
@@ -32,7 +32,7 @@ pub struct Item {
   pub name: String,
   /// The name of this item in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The generation this item was introduced in.
   pub generation: Resource<Generation>,
@@ -49,7 +49,7 @@ pub struct Item {
   pub effect_text: Vec<Effect>,
   /// Flavor text for this item in various languages.
   #[serde(rename = "flavor_text_entries")]
-  pub flavor_text: Vec<Text<FlavorText, VersionGroup>>,
+  pub flavor_text: Localized<FlavorText, VersionGroup>,
   /// This item's menu sprites.
   pub sprites: Sprites,
   /// This item's cost at the Pokemart.
@@ -122,9 +122,9 @@ pub struct Attribute {
   pub name: String,
   /// The name of this attribute in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// Descriptions of this attribute in various languages.
-  pub descriptions: Vec<Text<Desc>>,
+  pub descriptions: Localized<Desc>,
 
   /// Items with this attribute.
   pub items: Vec<Resource<Item>>,
@@ -143,7 +143,7 @@ pub struct Category {
   pub name: String,
   /// The name of this category in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Items in this category.
   pub items: Vec<Resource<Item>>,
@@ -164,7 +164,7 @@ pub struct Pocket {
   pub name: String,
   /// The name of this pocket in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Categories of items that go in this pocket.
   pub categories: Vec<Resource<Category>>,
@@ -204,7 +204,7 @@ pub struct FlingEffect {
   pub name: String,
   /// Effect text for this effect in different languages.
   #[serde(rename = "effect_entries")]
-  pub effects: Vec<Text<EffectText>>,
+  pub effects: Localized<EffectText>,
   /// Items with this effect.
   pub items: Vec<Resource<Item>>,
 }

@@ -11,7 +11,7 @@ use crate::model::item::Item;
 use crate::model::location::Location;
 use crate::model::mov::Move;
 use crate::model::species::Species;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::ty::Type;
 use crate::model::Resource;
 
@@ -163,7 +163,7 @@ pub struct Trigger {
   pub name: String,
   /// The name of this trigger in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Pokemon species that result from this trigger.
   #[serde(rename = "pokemon_species")]

@@ -6,11 +6,9 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::model::location::Region;
 use crate::model::species::Species;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::version::VersionGroup;
 use crate::model::Resource;
-
-text_field!(name);
 
 /// A particular regional Pokedex.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -21,7 +19,7 @@ pub struct Pokedex {
   pub name: String,
   /// The name of this Pokedex in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Whether this Pokedex is actually used in main-series games.
   pub is_main_series: bool,

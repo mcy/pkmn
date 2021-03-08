@@ -7,12 +7,12 @@ use crate::api::Endpoint;
 use crate::model::species::Pokemon;
 use crate::model::text::Effect;
 use crate::model::text::Erratum;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::version::Generation;
 use crate::model::version::Version;
 use crate::model::Resource;
 
-text_field!(name, flavor_text);
+text_field!(flavor_text);
 
 /// A Pokemon ability.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -23,7 +23,7 @@ pub struct Ability {
   pub name: String,
   /// The name of this ability in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Effect text for this ability in various languages.
   #[serde(rename = "effect_entries")]
@@ -33,7 +33,7 @@ pub struct Ability {
   pub errata: Vec<Erratum>,
   /// Flavor text for this ability in various languages.
   #[serde(rename = "flavor_text_entries")]
-  pub flavor_text: Vec<Text<FlavorText, Version>>,
+  pub flavor_text: Localized<FlavorText, Version>,
 
   /// Whether this ability is actually used in main-series games.
   pub is_main_series: bool,

@@ -9,11 +9,9 @@ use crate::model::location::Region;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
 use crate::model::species::Species;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::ty::Type;
 use crate::model::Resource;
-
-text_field!(name);
 
 /// A generation of Pokemon games.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,7 +22,7 @@ pub struct Generation {
   pub name: String,
   /// The name of this generation in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The maion region introduced in this generation.
   pub main_region: Resource<Region>,
@@ -92,7 +90,7 @@ pub struct Version {
   pub name: String,
   /// The name of this version in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// Which version group this version is part of.
   pub version_group: Resource<VersionGroup>,
 }

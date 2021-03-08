@@ -7,12 +7,10 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::model::mov::DamageClass;
 use crate::model::species::Pokemon;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
 use crate::model::Resource;
-
-text_field!(name);
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,7 +25,7 @@ pub struct Type {
   pub name: String,
   /// The name of this type in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The generation this type was introduced in.
   pub generation: Resource<Generation>,

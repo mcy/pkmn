@@ -8,11 +8,9 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::model::item::Item;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::ty::Type;
 use crate::model::Resource;
-
-text_field!(name);
 
 /// A berry.
 ///
@@ -102,7 +100,7 @@ pub struct Firmness {
   pub name: String,
   /// The name of this firmness in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Berries with this firmness.
   pub berries: Vec<Resource<Berry>>,
@@ -121,7 +119,7 @@ pub struct Flavor {
   pub name: String,
   /// The name of this flavor in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Berries with this flavor, and that flavor's respective potency.
   #[serde(with = "berry_and_potency")]

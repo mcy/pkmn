@@ -7,15 +7,13 @@ use crate::api::Endpoint;
 use crate::model::pokedex::Pokedex;
 use crate::model::species::Pokemon;
 use crate::model::species::Species;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
 use crate::model::Percent;
 use crate::model::Resource;
-
-text_field!(name);
 
 /// A region, such as Kanto or Sinnoh.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,7 +24,7 @@ pub struct Region {
   pub name: String,
   /// The name of this region in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The generation this region was introduced in.
   pub main_generation: Vec<Resource<Generation>>,
@@ -52,7 +50,7 @@ pub struct Location {
   pub name: String,
   /// The name of this location in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The internal game ids for this location.
   #[serde(rename = "game_indices")]
@@ -77,7 +75,7 @@ pub struct Area {
   pub name: String,
   /// The name of this area in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The internal game id for this area.
   #[serde(rename = "game_index")]
@@ -166,7 +164,7 @@ pub struct EncounterMethod {
   pub name: String,
   /// The name of this method in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// A good value for sorting against.
   pub order: u32,
 }
@@ -184,7 +182,7 @@ pub struct EncounterCondition {
   pub name: String,
   /// The name of this conditon in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// Values this condition can take on.
   pub values: Vec<Resource<EncounterConditionValue>>,
 }
@@ -202,7 +200,7 @@ pub struct EncounterConditionValue {
   pub name: String,
   /// The name of this value in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// The condition this value is for.
   pub condition: Vec<Resource<EncounterCondition>>,
 }
@@ -220,7 +218,7 @@ pub struct PalParkArea {
   pub name: String,
   /// The name of this area in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Encounters that can occur in this area.
   #[serde(rename = "pokemon_encounters")]

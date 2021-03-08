@@ -1,5 +1,6 @@
 use pkmn::api::Cache;
 use pkmn::model;
+use pkmn::model::text::LanguageName;
 use pkmn::Api;
 
 fn main() -> Result<(), pkmn::api::Error> {
@@ -7,12 +8,11 @@ fn main() -> Result<(), pkmn::api::Error> {
 
   for l in api.all::<model::Language>(50) {
     let l = l?;
-    let en_name = l
-      .localized_names
-      .iter()
-      .find(|t| t.language.is(model::text::LanguageName::English))
-      .map(|t| &t.text);
-    println!("{} {:?}", l.name, en_name);
+    println!(
+      "{} {:?}",
+      l.name,
+      l.localized_names.get(LanguageName::English)
+    );
   }
 
   Ok(())

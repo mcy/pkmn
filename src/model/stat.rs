@@ -7,10 +7,8 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::model::nature::Characteristic;
 use crate::model::nature::Nature;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::Resource;
-
-text_field!(name);
 
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -29,7 +27,7 @@ pub struct Stat {
   pub name: String,
   /// The name of this stat in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The internal game id for this stat.
   #[serde(rename = "game_index")]
@@ -98,7 +96,7 @@ pub mod pokeathalon {
     pub name: String,
     /// The name of this stat in various languages.
     #[serde(rename = "names")]
-    pub localized_names: Vec<Text<Name>>,
+    pub localized_names: Localized,
 
     /// Natures which can affect how this stat grows.
     #[serde(rename = "affecting_natures")]

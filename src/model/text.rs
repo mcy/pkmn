@@ -26,7 +26,7 @@ pub struct Language {
   pub name: NameOf<Self>,
   /// The name of this language in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Whether this language is actually used for publishing games.
   pub official: bool,
@@ -96,6 +96,44 @@ pub struct Text<Field, Version: VersionField = ()> {
   _ph: PhantomData<Field>,
 }
 
+/// A collection of localized text for a [`Resource`].
+///
+/// This structure is used extensibly in PokeAPI, but with different names for
+/// the `text` field and types for `version`. This struct unifies all of them
+/// into a consistent interface.
+///
+/// The type of `Field` is an implementation detail for providing the
+/// serialization name of `text`, while `Version` may either be `()` to
+/// indicate no version, or one of [`Version`] or [`VersionGroup`], in which
+/// case `version will have the type [`Resource<V>`].
+#[rustfmt::skip]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+#[serde(bound(serialize = "Field: TextField, Version: VersionField, Version::TYPE: Serialize"))]
+#[serde(bound(deserialize = "Field: TextField, Version: VersionField, Version::TYPE: Deserialize<'de>"))]
+pub struct Localized<Field = Name, Version: VersionField = ()> {
+  names: Vec<Text<Field, Version>>,
+}
+
+impl<F, V: VersionField> Localized<F, V> {
+  /// Returns an iterator over all localizations.
+  #[inline]
+  pub fn iter(&self) -> impl Iterator<Item = &Text<F, V>> + '_ {
+    self.names.iter()
+  }
+}
+
+impl<F> Localized<F> {
+  /// Returns the localization for a particular language, if one is present.
+  #[inline]
+  pub fn get(&self, lang: LanguageName) -> Option<&str> {
+    self
+      .iter()
+      .find(|text| text.language.is(lang))
+      .map(|text| &text.text[..])
+  }
+}
+
 /// Localized effect text, which may be abridged.
 ///
 /// Because of the extra "abridged" portion, this structure is separate from the
@@ -147,7 +185,7 @@ text_field!(name);
 
 #[doc(hidden)]
 pub trait VersionField: Sized {
-  type TYPE: DeserializeOwned + Serialize;
+  type TYPE: DeserializeOwned + Serialize + Clone + std::fmt::Debug;
   const NAME: Option<&'static str>;
   fn new() -> Self::TYPE {
     unreachable!()

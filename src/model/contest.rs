@@ -8,10 +8,10 @@ use crate::api::Endpoint;
 use crate::model::berry::Flavor;
 use crate::model::mov::Move;
 use crate::model::text;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::Resource;
 
-text_field!(name, flavor_text);
+text_field!(flavor_text);
 
 /// A Contest type.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,7 +22,7 @@ pub struct Type {
   pub name: String,
   /// The name of this type in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The flavor associated with this type.
   pub berry_flavor: Resource<Flavor>,
@@ -48,7 +48,7 @@ pub struct Effect {
   pub effects: Vec<text::Effect>,
   /// Flavor text for this ability in various languages.
   #[serde(rename = "flavor_text_entries")]
-  pub flavor_text: Vec<Text<FlavorText>>,
+  pub flavor_text: Localized<FlavorText>,
 }
 
 impl Endpoint for Effect {
@@ -68,7 +68,7 @@ pub struct SuperEffect {
 
   /// Flavor text for this ability in various languages.
   #[serde(rename = "flavor_text_entries")]
-  pub flavor_text: Vec<Text<FlavorText>>,
+  pub flavor_text: Localized<FlavorText>,
 
   /// Moves which have this effect.
   pub moves: Vec<Resource<Move>>,

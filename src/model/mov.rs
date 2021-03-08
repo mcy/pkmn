@@ -9,14 +9,14 @@ use crate::model::contest;
 use crate::model::item::Tm;
 use crate::model::text;
 use crate::model::text::Effect;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::ty::Type;
 use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
 use crate::model::Percent;
 use crate::model::Resource;
 
-text_field!(name, flavor_text, description: Desc);
+text_field!(flavor_text, description: Desc);
 
 /// A Pokemon move.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ pub struct Move {
   pub name: String,
   /// The name of this move in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The generation this move was introduced in.
   pub generation: Resource<Generation>,
@@ -70,7 +70,7 @@ pub struct Move {
   pub effect_errata: Vec<text::Erratum>,
   /// Flavor text for this move in various languages.
   #[serde(rename = "flavor_text_entries")]
-  pub flavor_text: Vec<Text<FlavorText, VersionGroup>>,
+  pub flavor_text: Localized<FlavorText, VersionGroup>,
 
   /// Errata for move properties through game versions.
   #[serde(rename = "past_values")]
@@ -192,7 +192,7 @@ pub struct Status {
   pub name: String,
   /// The name of this status in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Moves that can inflict this status.
   pub moves: Vec<Resource<Move>>,
@@ -210,7 +210,7 @@ pub struct Category {
   /// This category's API name.
   pub name: String,
   /// Descriptions of this category in various languages.
-  pub descriptions: Vec<Text<Desc>>,
+  pub descriptions: Localized<Desc>,
 
   /// Moves that can inflict this status.
   pub moves: Vec<Resource<Move>>,
@@ -229,9 +229,9 @@ pub struct DamageClass {
   pub name: String,
   /// The name of this class in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// Descriptions of this class in various languages.
-  pub descriptions: Vec<Text<Desc>>,
+  pub descriptions: Localized<Desc>,
 
   /// Moves with this damage class.
   pub moves: Vec<Resource<Move>>,
@@ -250,9 +250,9 @@ pub struct Target {
   pub name: String,
   /// The name of this target in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// Descriptions of this target in various languages.
-  pub descriptions: Vec<Text<Desc>>,
+  pub descriptions: Localized<Desc>,
 
   /// Moves with this target.
   pub moves: Vec<Resource<Move>>,

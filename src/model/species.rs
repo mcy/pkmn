@@ -14,7 +14,7 @@ use crate::model::location::PalParkArea;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
 use crate::model::stat::Stat;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::ty::Type;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
@@ -23,7 +23,7 @@ use crate::model::version::VersionGroup;
 use crate::model::Percent;
 use crate::model::Resource;
 
-text_field!(name, flavor_text, genus);
+text_field!(flavor_text, genus);
 text_field! {
   awesome_name: Awesome,
   description: Desc,
@@ -224,9 +224,9 @@ pub struct LearnMethod {
   pub name: String,
   /// The name of this method in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// Descriptions of this method in various languages.
-  pub descriptions: Vec<Text<Desc>>,
+  pub descriptions: Localized<Desc>,
   /// The version groups that this method is present in.
   pub version_group: Vec<Resource<VersionGroup>>,
 }
@@ -244,7 +244,7 @@ pub struct Species {
   pub name: String,
   /// The name of this species in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The generation this species was introduced in.
   pub generation: Resource<Generation>,
@@ -295,12 +295,12 @@ pub struct Species {
   pub habitat: Resource<Habitat>,
   /// Flavor text for this species in different languages.
   #[serde(rename = "flavor_text_entries")]
-  pub flavor_text: Vec<Text<FlavorText, Version>>,
+  pub flavor_text: Localized<FlavorText, Version>,
   /// This species' genus in different languages.
   ///
   /// For example, Bulbasaur is the "Seed Pokemon".
   #[serde(rename = "genera")]
-  pub genus: Vec<Text<Genus>>,
+  pub genus: Localized<Genus>,
 
   /// The species this species evolves from.
   #[serde(rename = "evolves_from_species")]
@@ -426,7 +426,7 @@ pub struct GrowthRate {
   /// This growth rate's API name.
   pub name: String,
   /// Descriptions of this growth rate in different languages.
-  pub descriptions: Vec<Text<Desc>>,
+  pub descriptions: Localized<Desc>,
 
   /// The formula describing the rate at which the pokemon gains levels.
   ///
@@ -463,7 +463,7 @@ pub struct EggGroup {
   pub name: String,
   /// The name of this egg group in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Species that have this egg group.
   #[serde(rename = "pokemon_species")]
@@ -483,7 +483,7 @@ pub struct Color {
   pub name: String,
   /// The name of this color in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Species that have this color.
   #[serde(rename = "pokemon_species")]
@@ -503,9 +503,9 @@ pub struct Shape {
   pub name: String,
   /// The name of this shape in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// The "scientific" name of this shape in various languages.
-  pub awesome_names: Vec<Text<Awesome>>,
+  pub awesome_names: Localized<Awesome>,
 
   /// Species that have this shape.
   #[serde(rename = "pokemon_species")]
@@ -525,7 +525,7 @@ pub struct Habitat {
   pub name: String,
   /// The name of this habitat in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// Species that have this habitat.
   #[serde(rename = "pokemon_species")]

@@ -7,11 +7,11 @@ use crate::api::Endpoint;
 use crate::model::berry::Flavor;
 use crate::model::stat::pokeathalon;
 use crate::model::stat::Stat;
-use crate::model::text::Text;
+use crate::model::text::Localized;
 use crate::model::Percent;
 use crate::model::Resource;
 
-text_field!(name, description: Desc);
+text_field!(description: Desc);
 
 /// A Pokemon nature.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,7 +22,7 @@ pub struct Nature {
   pub name: String,
   /// The name of this nature in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 
   /// The statistic that this nature causes to grow worse.
   #[serde(rename = "decreased_stat")]
@@ -83,7 +83,7 @@ pub struct BattlePlaceStyle {
   pub name: String,
   /// The name of this style in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
 }
 
 impl Endpoint for BattlePlaceStyle {
@@ -101,9 +101,9 @@ pub struct Characteristic {
   pub id: u32,
   /// The name of this style in various languages.
   #[serde(rename = "names")]
-  pub localized_names: Vec<Text<Name>>,
+  pub localized_names: Localized,
   /// Descriptions of this characteristic in various languages.
-  pub descriptions: Vec<Text<Desc>>,
+  pub descriptions: Localized<Desc>,
 
   /// The statistic this characteristic is triggered by.
   pub highest_stat: Resource<Stat>,
