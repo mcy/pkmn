@@ -45,11 +45,6 @@ impl PartialEq for WeakString {
 }
 impl Eq for WeakString {}
 
-struct Value(
-  Rc<dyn Any>,
-  Box<dyn FnOnce(*const u8) -> Result<Vec<u8>, Error>>,
-);
-
 impl Cache {
   /// Creates a new [`Cache`] with the given in-memory capacity.
   ///
@@ -118,21 +113,43 @@ impl Cache {
         self.detach(node_ptr);
         self.attach(node_ptr);
 
-        let rc = Rc::clone(&(&*(*node_ptr).val.as_ptr()).0);
+        let rc = Rc::clone(&*(*node_ptr).val.as_ptr());
         return Ok(Rc::downcast(rc).expect("wrong type in FileCache"));
       }
     }
 
     let val = match self.unearth(k, deserialize)? {
       Some(x) => x,
-      None => Rc::new(compute()?),
+      None => {
+        let val = Rc::new(compute()?);
+        self.bury(k, &*val, serialize)?;
+        val
+      }
     };
 
     let clone = Rc::clone(&val) as Rc<dyn Any>;
-    let serialize =
-      Box::new(move |ptr: *const u8| unsafe { serialize(&*(ptr as *const V)) });
-    self.insert(k.to_string(), Value(clone, serialize))?;
+    self.insert(k.to_string(), clone)?;
     Ok(val)
+  }
+
+  /// Writes a key/value pair to the disk cache.
+  fn bury<V>(&self, k: &str, v: &V, serialize: impl FnOnce(&V) -> Result<Vec<u8>, Error>) -> Result<(), Error> {
+    let mut path = match &self.file_root {
+      Some(path) => {
+        if !path.exists() {
+          if fs::create_dir_all(path).is_err() {
+            return Ok(());
+          }
+        }
+        path.clone()
+      }
+      None => return Ok(()),
+    };
+
+    path.push(&Self::encode_key(k));
+
+    fs::write(&path, serialize(v)?)?;
+    Ok(())
   }
 
   /// Try to pull a value of type `V` out of the disk cache.
@@ -163,7 +180,7 @@ impl Cache {
   }
 
   /// Inserts a type-erased value.
-  fn insert(&mut self, k: String, v: Value) -> Result<(), Error> {
+  fn insert(&mut self, k: String, v: Rc<dyn Any>) -> Result<(), Error> {
     // If the capacity is zero, do nothing.
     if self.capacity == 0 {
       return Ok(());
@@ -183,7 +200,8 @@ impl Cache {
 
       // Evict the old values into the file cache.
       unsafe {
-        self.bury(&old_node.key.assume_init(), old_node.val.assume_init())?;
+        ptr::drop_in_place(old_node.key.as_mut_ptr());
+        ptr::drop_in_place(old_node.val.as_mut_ptr());
       }
 
       old_node.key = MaybeUninit::new(k);
@@ -203,27 +221,6 @@ impl Cache {
 
     let key = unsafe { WeakString(&**node.key.as_ptr()) };
     self.map.insert(key, node);
-    Ok(())
-  }
-
-  /// Writes a key/value pair to the disk cache.
-  fn bury(&self, k: &str, v: Value) -> Result<(), Error> {
-    let mut path = match &self.file_root {
-      Some(path) => {
-        if !path.exists() {
-          if fs::create_dir_all(path).is_err() {
-            return Ok(());
-          }
-        }
-        path.clone()
-      }
-      None => return Ok(()),
-    };
-
-    path.push(&Self::encode_key(k));
-
-    let buf = (v.1)(Rc::as_ptr(&v.0) as *const u8)?;
-    fs::write(&path, buf)?;
     Ok(())
   }
 
@@ -251,8 +248,9 @@ impl Drop for Cache {
   fn drop(&mut self) {
     unsafe {
       let mut map = std::mem::take(&mut self.map);
-      for (_, v) in map.drain() {
-        let _ = self.bury(&v.key.assume_init(), v.val.assume_init());
+      for (_, mut v) in map.drain() {
+        ptr::drop_in_place(v.key.as_mut_ptr());
+        ptr::drop_in_place(v.val.as_mut_ptr());
       }
 
       // The head and tail are not present in the map, so we drop them
@@ -265,14 +263,14 @@ impl Drop for Cache {
 
 struct Entry {
   key: MaybeUninit<String>,
-  val: MaybeUninit<Value>,
+  val: MaybeUninit<Rc<dyn Any>>,
 
   prev: *mut Entry,
   next: *mut Entry,
 }
 
 impl Entry {
-  fn new(k: String, v: Value) -> Self {
+  fn new(k: String, v: Rc<dyn Any>) -> Self {
     Self {
       key: MaybeUninit::new(k),
       val: MaybeUninit::new(v),
