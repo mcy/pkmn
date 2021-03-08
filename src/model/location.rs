@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::model::pokedex::Pokedex;
+use crate::model::resource::Resource;
 use crate::model::species::Pokemon;
 use crate::model::species::Species;
 use crate::model::text::Localized;
@@ -13,7 +14,6 @@ use crate::model::version::Generation;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
 use crate::model::Percent;
-use crate::model::Resource;
 
 /// A region, such as Kanto or Sinnoh.
 #[derive(Clone, Debug, Serialize, Deserialize)]

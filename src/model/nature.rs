@@ -5,11 +5,11 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::model::berry::Flavor;
+use crate::model::resource::Resource;
 use crate::model::stat::pokeathalon;
 use crate::model::stat::Stat;
 use crate::model::text::Localized;
 use crate::model::Percent;
-use crate::model::Resource;
 
 text_field!(description: Desc);
 

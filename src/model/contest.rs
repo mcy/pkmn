@@ -7,9 +7,9 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::model::berry::Flavor;
 use crate::model::mov::Move;
+use crate::model::resource::Resource;
 use crate::model::text;
 use crate::model::text::Localized;
-use crate::model::Resource;
 
 text_field!(flavor_text);
 

@@ -1,6 +1,6 @@
 use pkmn::api::Cache;
 use pkmn::model;
-use pkmn::model::text::LanguageName;
+use pkmn::model::LanguageName;
 use pkmn::Api;
 
 fn main() -> Result<(), pkmn::api::Error> {

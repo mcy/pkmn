@@ -8,10 +8,10 @@ use crate::model::ability::Ability;
 use crate::model::location::Region;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
+use crate::model::resource::Resource;
 use crate::model::species::Species;
 use crate::model::text::Localized;
 use crate::model::ty::Type;
-use crate::model::Resource;
 
 /// A generation of Pokemon games.
 #[derive(Clone, Debug, Serialize, Deserialize)]

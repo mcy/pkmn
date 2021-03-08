@@ -13,6 +13,7 @@ use crate::model::item::Item;
 use crate::model::location::PalParkArea;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
+use crate::model::resource::Resource;
 use crate::model::stat::Stat;
 use crate::model::text::Localized;
 use crate::model::ty::Type;
@@ -21,7 +22,6 @@ use crate::model::version::Generation;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
 use crate::model::Percent;
-use crate::model::Resource;
 
 text_field!(flavor_text, genus);
 text_field! {

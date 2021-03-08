@@ -5,18 +5,12 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
+use crate::model::mov::DamageClass;
+use crate::model::mov::Move;
 use crate::model::nature::Characteristic;
 use crate::model::nature::Nature;
+use crate::model::resource::Resource;
 use crate::model::text::Localized;
-use crate::model::Resource;
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Move;
-
-///
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DamageClass;
 
 /// A Pokemon battle statistic.
 #[derive(Clone, Debug, Serialize, Deserialize)]
