@@ -4,7 +4,9 @@ version = "0.1.0"
 authors = ["Miguel Young de la Sota <mcyoung@mit.edu>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = [".", "pdex"]
+default-members = [".", "pdex"]
 
 [dependencies]
 base64 = "0.13.0"

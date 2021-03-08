@@ -256,7 +256,7 @@ pub struct Species {
   pub varieties: Vec<Variety>,
 
   /// This species' gender ratio.
-  #[serde(rename = "gender_ratio")]
+  #[serde(rename = "gender_rate")]
   pub gender_ratio: GenderRatio,
   /// Whether this species exhibits sexual dimorphism.
   pub has_gender_differences: bool,

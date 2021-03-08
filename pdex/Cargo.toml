@@ -1,0 +1,11 @@
+[package]
+name = "pdex"
+version = "0.1.0"
+authors = ["Miguel Young de la Sota <mcyoung@mit.edu>"]
+edition = "2018"
+
+[dependencies]
+crossbeam = "0.8.0"
+pkmn = { path = ".." }
+termion = "1.5"
+tui = "0.14.0"
