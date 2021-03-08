@@ -292,7 +292,7 @@ pub struct Species {
   /// This species' shape according to the Pokedex.
   pub shape: Resource<Shape>,
   /// This species' habitat according to the Pokedex.
-  pub habitat: Resource<Habitat>,
+  pub habitat: Option<Resource<Habitat>>,
   /// Flavor text for this species in different languages.
   #[serde(rename = "flavor_text_entries")]
   pub flavor_text: Localized<FlavorText, Version>,

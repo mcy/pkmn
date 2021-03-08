@@ -97,6 +97,7 @@ impl Api {
       |buf| serde_json::from_reader(&mut &buf[..]).map_err(Into::into),
       |val| serde_json::to_vec(val).map_err(Into::into),
       || {
+        dbg!(url);
         let mut buf = Vec::new();
         client.get(url).send()?.read_to_end(&mut buf)?;
         Ok(serde_json::from_reader(&mut &buf[..])?)
@@ -123,9 +124,7 @@ impl Api {
         return None;
       }
 
-      if page.is_none()
-        || page.as_ref().map(|p| p.results.is_empty()).unwrap_or(false)
-      {
+      if page.is_none() || results.is_empty() {
         let url;
         let next = match page.as_ref() {
           Some(page) => page.next.as_ref()?,
