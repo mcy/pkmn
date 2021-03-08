@@ -44,12 +44,6 @@ pub enum Error {
 
   #[error(transparent)]
   Json(#[from] serde_json::Error),
-
-  #[error("mismatched API URLs (expected {expected_base} but got {actual_url} instead)")]
-  ApiMismatch {
-    expected_base: String,
-    actual_url: String,
-  },
 }
 
 impl Api {
@@ -76,23 +70,36 @@ impl Api {
   }
 
   /// Base request-generating function, with caching.
-  fn request<T: Serialize + DeserializeOwned + Clone + 'static>(
+  fn request_blob(&mut self, url: &str) -> Result<Rc<Box<[u8]>>, Error> {
+    let client = &self.client;
+    self.cache.get(
+      url,
+      |buf| Ok(buf.into_boxed_slice()),
+      |val| Ok(val.clone().into()),
+      || {
+        let mut buf = Vec::new();
+        client.get(url).send()?.read_to_end(&mut buf)?;
+        Ok(buf.into_boxed_slice())
+      },
+    )
+  }
+
+  /// Base request-generating function, with caching.
+  fn request_json<T: Serialize + DeserializeOwned + Clone + 'static>(
     &mut self,
     url: &str,
   ) -> Result<Rc<T>, Error> {
-    if !url.starts_with(&self.base_url) {
-      return Err(Error::ApiMismatch {
-        expected_base: self.base_url.clone(),
-        actual_url: url.to_string(),
-      });
-    }
-
     let client = &self.client;
-    self.cache.get(url, || {
-      let mut buf = Vec::new();
-      client.get(url).send()?.read_to_end(&mut buf)?;
-      Ok(serde_json::from_reader(&mut &buf[..])?)
-    })
+    self.cache.get(
+      url,
+      |buf| serde_json::from_reader(&mut &buf[..]).map_err(Into::into),
+      |val| serde_json::to_vec(val).map_err(Into::into),
+      || {
+        let mut buf = Vec::new();
+        client.get(url).send()?.read_to_end(&mut buf)?;
+        Ok(serde_json::from_reader(&mut &buf[..])?)
+      },
+    )
   }
 
   /// Iterate over all resources of type `T`.
@@ -100,8 +107,11 @@ impl Api {
   /// The returned iterator is lazy, and no requests will occur until the first
   /// call of `next()`. If an error occurs during pagination, all following
   /// calls to `next()` will return `None`.
+  ///
+  /// This function will request `per_page` entries at a time.
   pub fn all<T: Endpoint>(
     &mut self,
+    per_page: usize,
   ) -> impl Iterator<Item = Result<Rc<T>, Error>> + '_ {
     let mut page: Option<Rc<Page<T>>> = None;
     let mut results = Vec::new();
@@ -118,11 +128,11 @@ impl Api {
         let next = match page.as_ref() {
           Some(page) => page.next.as_ref()?,
           None => {
-            url = format!("{}/{}", self.base_url, T::NAME);
+            url = format!("{}/{}?limit={}", self.base_url, T::NAME, per_page);
             &url
           }
         };
-        match self.request::<Page<_>>(next) {
+        match self.request_json::<Page<_>>(next) {
           Ok(p) => {
             results = p.results.clone();
             results.reverse();
@@ -141,7 +151,7 @@ impl Api {
 
   /// Try to get the specific resource of type `T` with the given name.
   pub fn by_name<T: Endpoint>(&mut self, name: &str) -> Result<Rc<T>, Error> {
-    self.request(&format!("{}/{}/{}", self.base_url, T::NAME, name))
+    self.request_json(&format!("{}/{}/{}", self.base_url, T::NAME, name))
   }
 }
 
@@ -163,23 +173,83 @@ struct Page<T> {
   count: u64,
 }
 
-/// A lazily-loaded PokeAPI resource.
+/// A lazily-loaded blob.
 ///
-/// Call [`Resource::load()`] to convert this into a `T`.
+/// Evaluating this blob may require performing a network request, if it has
+/// not been cached by a client.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Resource<T> {
-  #[allow(unused)]
-  name: Option<String>,
+#[serde(transparent)]
+pub struct Blob {
+  url: String,
+}
+
+impl Blob {
+  /// Creates a new lazily-loaded blob located at `url`.
+  pub fn new(url: String) -> Self {
+    Self { url }
+  }
+
+  /// Returns the `url` that points to the blob.
+  pub fn url(&self) -> &str {
+    &self.url
+  }
+
+  /// Performs a network request to lazily evaluate this blob.
+  pub fn load(&self, api: &mut Api) -> Result<Rc<Box<[u8]>>, Error> {
+    api.request_blob(&self.url)
+  }
+}
+
+/// A lazily-loaded object.
+///
+/// Evaluating this object may require performing a network request, if it has
+/// not been cached by a client.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Lazy<T> {
   url: String,
 
   #[serde(skip)]
   _ph: PhantomData<fn() -> T>,
 }
 
+impl<T> Lazy<T> {
+  /// Creates a new lazily-loaded object located at `url`.
+  pub fn new(url: String) -> Self {
+    Self {
+      url,
+      _ph: PhantomData,
+    }
+  }
+
+  /// Returns the `url` that points to the object.
+  pub fn url(&self) -> &str {
+    &self.url
+  }
+}
+
+impl<T: Serialize + DeserializeOwned + Clone + 'static> Lazy<T> {
+  /// Performs a network request to lazily evaluate this object.
+  pub fn load(&self, api: &mut Api) -> Result<Rc<T>, Error> {
+    api.request_json(&self.url)
+  }
+}
+
+/// A (possibly-named) PokeAPI resource.
+///
+/// Call [`Resource::load()`] to convert this into a `T`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Resource<T> {
+  #[allow(unused)]
+  name: Option<String>,
+  #[serde(rename = "url")]
+  object: Lazy<T>,
+}
+
 impl<T: Endpoint> Resource<T> {
-  /// Perform a network request to obtain the `T` represented by this
+  /// Performs a network request to obtain the `T` represented by this
   /// [`Resource`].
   pub fn load(&self, api: &mut Api) -> Result<Rc<T>, Error> {
-    api.request(&self.url)
+    self.object.load(api)
   }
 }

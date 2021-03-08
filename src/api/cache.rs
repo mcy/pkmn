@@ -1,7 +1,6 @@
 //! Caching utilities.
 
 use std::any::Any;
-use std::any::TypeId;
 use std::collections::HashMap;
 use std::fs;
 use std::hash::Hash;
@@ -10,9 +9,6 @@ use std::mem::MaybeUninit;
 use std::path::PathBuf;
 use std::ptr;
 use std::rc::Rc;
-
-use serde::de::DeserializeOwned;
-use serde::Serialize;
 
 use crate::api::Error;
 
@@ -49,18 +45,10 @@ impl PartialEq for WeakString {
 }
 impl Eq for WeakString {}
 
-/// Helper trait for erasing types in the cache.
-trait AnySer: Any {
-  fn serialize(&self) -> Result<Vec<u8>, Error>;
-}
-impl<T> AnySer for T
-where
-  T: Any + Serialize,
-{
-  fn serialize(&self) -> Result<Vec<u8>, Error> {
-    Ok(serde_json::to_vec(self)?)
-  }
-}
+struct Value(
+  Rc<dyn Any>,
+  Box<dyn FnOnce(*const u8) -> Result<Vec<u8>, Error>>,
+);
 
 impl Cache {
   /// Creates a new [`Cache`] with the given in-memory capacity.
@@ -115,10 +103,12 @@ impl Cache {
   /// cache. If both of those fails, `f` is called to perform the computation.
   ///
   /// Any errors produced by `f` will bubble up to the caller.
-  pub(in crate::api) fn get<V: Serialize + DeserializeOwned + 'static>(
+  pub(in crate::api) fn get<V: 'static>(
     &mut self,
     k: &str,
-    f: impl FnOnce() -> Result<V, Error>,
+    deserialize: impl FnOnce(Vec<u8>) -> Result<V, Error>,
+    serialize: impl FnOnce(&V) -> Result<Vec<u8>, Error> + 'static,
+    compute: impl FnOnce() -> Result<V, Error>,
   ) -> Result<Rc<V>, Error> {
     if let Some(node) = self.map.get_mut(&WeakString(k)) {
       // Pull a node out of the memory cache if one is present.
@@ -128,31 +118,28 @@ impl Cache {
         self.detach(node_ptr);
         self.attach(node_ptr);
 
-        // We need to work around the fact that only Rc<dyn Any> offers
-        // safe downcasting.
-        let rc = Rc::clone(&*(*node_ptr).val.as_ptr());
-        assert!(
-          (*rc).type_id() == TypeId::of::<V>(),
-          "wrong type in FileCache"
-        );
-        return Ok(Rc::from_raw(Rc::into_raw(rc) as *const V));
+        let rc = Rc::clone(&(&*(*node_ptr).val.as_ptr()).0);
+        return Ok(Rc::downcast(rc).expect("wrong type in FileCache"));
       }
     }
 
-    if let Some(val) = self.unearth(k)? {
-      self.insert(k.to_string(), Rc::clone(&val) as Rc<dyn AnySer>)?;
-      return Ok(val);
-    }
+    let val = match self.unearth(k, deserialize)? {
+      Some(x) => x,
+      None => Rc::new(compute()?),
+    };
 
-    let val = Rc::new(f()?);
-    self.insert(k.to_string(), Rc::clone(&val) as Rc<dyn AnySer>)?;
+    let clone = Rc::clone(&val) as Rc<dyn Any>;
+    let serialize =
+      Box::new(move |ptr: *const u8| unsafe { serialize(&*(ptr as *const V)) });
+    self.insert(k.to_string(), Value(clone, serialize))?;
     Ok(val)
   }
 
   /// Try to pull a value of type `V` out of the disk cache.
-  fn unearth<V: DeserializeOwned>(
+  fn unearth<V>(
     &self,
     k: &str,
+    deserialize: impl FnOnce(Vec<u8>) -> Result<V, Error>,
   ) -> Result<Option<Rc<V>>, Error> {
     let mut path = match &self.file_root {
       Some(path) => {
@@ -171,12 +158,12 @@ impl Cache {
       return Ok(None);
     }
 
-    let val = serde_json::from_reader(fs::File::open(&path)?)?;
+    let val = deserialize(fs::read(path)?)?;
     Ok(Some(Rc::new(val)))
   }
 
   /// Inserts a type-erased value.
-  fn insert(&mut self, k: String, v: Rc<dyn AnySer>) -> Result<(), Error> {
+  fn insert(&mut self, k: String, v: Value) -> Result<(), Error> {
     // If the capacity is zero, do nothing.
     if self.capacity == 0 {
       return Ok(());
@@ -196,7 +183,7 @@ impl Cache {
 
       // Evict the old values into the file cache.
       unsafe {
-        self.bury(&old_node.key.assume_init(), &*old_node.val.assume_init())?;
+        self.bury(&old_node.key.assume_init(), old_node.val.assume_init())?;
       }
 
       old_node.key = MaybeUninit::new(k);
@@ -220,7 +207,7 @@ impl Cache {
   }
 
   /// Writes a key/value pair to the disk cache.
-  fn bury(&self, k: &str, v: &dyn AnySer) -> Result<(), Error> {
+  fn bury(&self, k: &str, v: Value) -> Result<(), Error> {
     let mut path = match &self.file_root {
       Some(path) => {
         if !path.exists() {
@@ -234,7 +221,9 @@ impl Cache {
     };
 
     path.push(&Self::encode_key(k));
-    fs::write(&path, v.serialize()?)?;
+
+    let buf = (v.1)(Rc::as_ptr(&v.0) as *const u8)?;
+    fs::write(&path, buf)?;
     Ok(())
   }
 
@@ -263,7 +252,7 @@ impl Drop for Cache {
     unsafe {
       let mut map = std::mem::take(&mut self.map);
       for (_, v) in map.drain() {
-        let _ = self.bury(&v.key.assume_init(), &*v.val.assume_init());
+        let _ = self.bury(&v.key.assume_init(), v.val.assume_init());
       }
 
       // The head and tail are not present in the map, so we drop them
@@ -276,14 +265,14 @@ impl Drop for Cache {
 
 struct Entry {
   key: MaybeUninit<String>,
-  val: MaybeUninit<Rc<dyn AnySer>>,
+  val: MaybeUninit<Value>,
 
   prev: *mut Entry,
   next: *mut Entry,
 }
 
 impl Entry {
-  fn new(k: String, v: Rc<dyn AnySer>) -> Self {
+  fn new(k: String, v: Value) -> Self {
     Self {
       key: MaybeUninit::new(k),
       val: MaybeUninit::new(v),
