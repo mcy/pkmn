@@ -77,11 +77,11 @@ pub struct Move {
   pub errata: Vec<Erratum>,
 
   /// This move's type during a Contest.
-  pub contest_type: Resource<contest::Type>,
+  pub contest_type: Option<Resource<contest::Type>>,
   /// This move's effect during a Contest.
-  pub contest_effect: Resource<contest::Effect>,
+  pub contest_effect: Option<Resource<contest::Effect>>,
   /// This move's effect during a Super Contest.
-  pub super_contest_effect: Resource<contest::SuperEffect>,
+  pub super_contest_effect: Option<Resource<contest::SuperEffect>>,
 }
 
 /// Metadata for a particular [`Move`].
