@@ -5,7 +5,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::evolution::Family;
 use crate::model::mov::Move;
 use crate::model::species::Pokemon;
@@ -16,6 +15,7 @@ use crate::model::version::Generation;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
 use crate::model::Percent;
+use crate::model::Resource;
 
 text_field!(name, flavor_text);
 text_field! {

@@ -1,6 +1,9 @@
 //! Structs describing the PokéAPI data model.
 
 #[macro_use]
+pub mod resource;
+
+#[macro_use]
 pub mod text;
 
 pub mod ability;
@@ -29,6 +32,7 @@ pub use location::Region;
 pub use mov::Move;
 pub use nature::Nature;
 pub use pokedex::Pokedex;
+pub use resource::Resource;
 pub use species::EggGroup;
 pub use species::Species;
 pub use stat::Stat;

@@ -11,6 +11,8 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::model::Resource;
+
 mod cache;
 pub use cache::Cache;
 
@@ -232,24 +234,5 @@ impl<T: Serialize + DeserializeOwned + Clone + 'static> Lazy<T> {
   /// Performs a network request to lazily evaluate this object.
   pub fn load(&self, api: &mut Api) -> Result<Rc<T>, Error> {
     api.request_json(&self.url)
-  }
-}
-
-/// A (possibly-named) PokeAPI resource.
-///
-/// Call [`Resource::load()`] to convert this into a `T`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Resource<T> {
-  #[allow(unused)]
-  name: Option<String>,
-  #[serde(rename = "url")]
-  object: Lazy<T>,
-}
-
-impl<T: Endpoint> Resource<T> {
-  /// Performs a network request to obtain the `T` represented by this
-  /// [`Resource`].
-  pub fn load(&self, api: &mut Api) -> Result<Rc<T>, Error> {
-    self.object.load(api)
   }
 }

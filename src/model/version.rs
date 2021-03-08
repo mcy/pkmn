@@ -4,7 +4,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::ability::Ability;
 use crate::model::location::Region;
 use crate::model::mov::Move;
@@ -12,6 +11,7 @@ use crate::model::pokedex::Pokedex;
 use crate::model::species::Species;
 use crate::model::text::Text;
 use crate::model::ty::Type;
+use crate::model::Resource;
 
 text_field!(name);
 

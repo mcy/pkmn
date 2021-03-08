@@ -5,12 +5,12 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::mov::DamageClass;
 use crate::model::species::Pokemon;
 use crate::model::text::Text;
 use crate::model::version::GameId;
 use crate::model::version::Generation;
+use crate::model::Resource;
 
 text_field!(name);
 

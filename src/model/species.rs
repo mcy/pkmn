@@ -6,7 +6,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::ability::Ability;
 use crate::model::evolution::Family;
 use crate::model::item::HeldRarity;
@@ -22,6 +21,7 @@ use crate::model::version::Generation;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
 use crate::model::Percent;
+use crate::model::Resource;
 
 text_field!(name, flavor_text, genus);
 text_field! {

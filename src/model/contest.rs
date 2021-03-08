@@ -5,14 +5,11 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::berry::Flavor;
 use crate::model::mov::Move;
 use crate::model::text;
 use crate::model::text::Text;
-
-#[cfg(doc)]
-use crate::model::mov::Move;
+use crate::model::Resource;
 
 text_field!(name, flavor_text);
 

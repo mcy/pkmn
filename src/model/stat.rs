@@ -5,10 +5,10 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::nature::Characteristic;
 use crate::model::nature::Nature;
 use crate::model::text::Text;
+use crate::model::Resource;
 
 text_field!(name);
 

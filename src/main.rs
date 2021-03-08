@@ -3,8 +3,11 @@ use pkmn::model;
 use pkmn::Api;
 
 fn main() -> Result<(), pkmn::api::Error> {
-  let mut api = Api::with_cache(Cache::no_disk(256));
-  api.by_name::<model::mov::Move>("earth-power")?;
+  let mut api = Api::with_cache(Cache::new(256));
+
+  for l in api.all::<model::Language>(50) {
+    println!("{}", l?.name);
+  }
 
   Ok(())
 }

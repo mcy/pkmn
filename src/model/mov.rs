@@ -5,7 +5,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::contest;
 use crate::model::item::Tm;
 use crate::model::text;
@@ -15,6 +14,7 @@ use crate::model::ty::Type;
 use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
 use crate::model::Percent;
+use crate::model::Resource;
 
 text_field!(name, flavor_text, description: Desc);
 

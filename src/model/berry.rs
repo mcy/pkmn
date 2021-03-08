@@ -7,10 +7,10 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::item::Item;
 use crate::model::text::Text;
 use crate::model::ty::Type;
+use crate::model::Resource;
 
 text_field!(name);
 

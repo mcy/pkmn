@@ -4,13 +4,13 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::species::Pokemon;
 use crate::model::text::Effect;
 use crate::model::text::Erratum;
 use crate::model::text::Text;
 use crate::model::version::Generation;
 use crate::model::version::Version;
+use crate::model::Resource;
 
 text_field!(name, flavor_text);
 

@@ -4,11 +4,11 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::location::Region;
 use crate::model::species::Species;
 use crate::model::text::Text;
 use crate::model::version::VersionGroup;
+use crate::model::Resource;
 
 text_field!(name);
 

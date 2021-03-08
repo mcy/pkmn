@@ -11,9 +11,9 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::api::Endpoint;
-use crate::api::Resource;
 use crate::model::version::Version;
 use crate::model::version::VersionGroup;
+use crate::model::Resource;
 
 /// A language that text can be localized for.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,14 +22,16 @@ pub struct Language {
   pub id: u32,
   /// This language's API name.
   pub name: String,
+  /// The name of this language in various languages.
+  #[serde(rename = "names")]
+  pub localized_names: Vec<Text<Name>>,
+
   /// Whether this language is actually used for publishing games.
   pub official: bool,
   /// The two-letter ISO 636 code for this language's country; not unique.
   pub iso639: Option<String>,
   /// The two-letter ISO 3155 code for this language; not unique.
   pub iso3155: Option<String>,
-  /// The name of this language in various languages.
-  pub names: Vec<Text<Name>>,
 }
 
 impl Endpoint for Language {
