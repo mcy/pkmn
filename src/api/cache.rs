@@ -9,6 +9,7 @@ use std::mem::MaybeUninit;
 use std::path::PathBuf;
 use std::ptr;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::api::Error;
 
@@ -23,14 +24,18 @@ use crate::api::Api;
 /// When looking things up in the cache, chache misses go to disk before
 /// performing actual computation.
 pub struct Cache {
+  inner: Mutex<Inner>,
+  file_root: Option<PathBuf>,
+}
+
+struct Inner {
   map: HashMap<WeakString, Box<Entry>>,
   capacity: usize,
 
   head: *mut Entry,
   tail: *mut Entry,
-
-  file_root: Option<PathBuf>,
 }
+unsafe impl Send for Inner {}
 
 struct WeakString(*const str);
 impl Hash for WeakString {
@@ -75,21 +80,23 @@ impl Cache {
 
   /// Constructs a new `Cache`.
   fn ctor(capacity: usize, file_root: Option<PathBuf>) -> Self {
-    let cache = Self {
+    let inner = Inner {
       map: HashMap::new(),
       capacity,
       // The head and tail are "empty" nodes, to make attach/detach simpler.
       head: Box::into_raw(Box::new(Entry::sigil())),
       tail: Box::into_raw(Box::new(Entry::sigil())),
-      file_root,
     };
 
     unsafe {
-      (*cache.head).next = cache.tail;
-      (*cache.tail).prev = cache.head;
+      (*inner.head).next = inner.tail;
+      (*inner.tail).prev = inner.head;
     }
 
-    cache
+    Cache {
+      inner: Mutex::new(inner),
+      file_root,
+    }
   }
 
   /// Looks up a value of type `V` with the given key.
@@ -99,24 +106,26 @@ impl Cache {
   ///
   /// Any errors produced by `f` will bubble up to the caller.
   pub(in crate::api) fn get<V: Send + Sync + 'static>(
-    &mut self,
+    &self,
     k: &str,
     deserialize: impl FnOnce(Vec<u8>) -> Result<V, Error>,
     serialize: impl FnOnce(&V) -> Result<Vec<u8>, Error> + 'static,
     compute: impl FnOnce() -> Result<V, Error>,
   ) -> Result<Arc<V>, Error> {
-    if let Some(node) = self.map.get_mut(&WeakString(k)) {
+    let mut inner = self.inner.lock().unwrap();
+    if let Some(node) = inner.map.get_mut(&WeakString(k)) {
       // Pull a node out of the memory cache if one is present.
       unsafe {
         let node_ptr: *mut _ = &mut **node;
 
-        self.detach(node_ptr);
-        self.attach(node_ptr);
+        inner.detach(node_ptr);
+        inner.attach(node_ptr);
 
         let rc = Arc::clone(&*(*node_ptr).val.as_ptr());
         return Ok(Arc::downcast(rc).expect("wrong type in FileCache"));
       }
     }
+    drop(inner);
 
     let val = match self.unearth(k, deserialize)? {
       Some(x) => x,
@@ -128,12 +137,17 @@ impl Cache {
     };
 
     let clone = Arc::clone(&val) as Arc<(dyn Any + Send + Sync + 'static)>;
-    self.insert(k.to_string(), clone)?;
+    self.inner.lock().unwrap().insert(k.to_string(), clone)?;
     Ok(val)
   }
 
   /// Writes a key/value pair to the disk cache.
-  fn bury<V>(&self, k: &str, v: &V, serialize: impl FnOnce(&V) -> Result<Vec<u8>, Error>) -> Result<(), Error> {
+  fn bury<V>(
+    &self,
+    k: &str,
+    v: &V,
+    serialize: impl FnOnce(&V) -> Result<Vec<u8>, Error>,
+  ) -> Result<(), Error> {
     let mut path = match &self.file_root {
       Some(path) => {
         if !path.exists() {
@@ -179,8 +193,19 @@ impl Cache {
     Ok(Some(Arc::new(val)))
   }
 
+  /// Encodes `key` for the purposes of being a file name for the disk cache.
+  fn encode_key(key: &str) -> String {
+    base64::encode_config(key.as_bytes(), base64::URL_SAFE)
+  }
+}
+
+impl Inner {
   /// Inserts a type-erased value.
-  fn insert(&mut self, k: String, v: Arc<(dyn Any + Send + Sync + 'static)>) -> Result<(), Error> {
+  fn insert(
+    &mut self,
+    k: String,
+    v: Arc<(dyn Any + Send + Sync + 'static)>,
+  ) -> Result<(), Error> {
     // If the capacity is zero, do nothing.
     if self.capacity == 0 {
       return Ok(());
@@ -237,17 +262,13 @@ impl Cache {
     (*self.head).next = node;
     (*(*node).next).prev = node;
   }
-
-  /// Encodes `key` for the purposes of being a file name for the disk cache.
-  fn encode_key(key: &str) -> String {
-    base64::encode_config(key.as_bytes(), base64::URL_SAFE)
-  }
 }
 
 impl Drop for Cache {
   fn drop(&mut self) {
     unsafe {
-      let mut map = std::mem::take(&mut self.map);
+      let inner = self.inner.get_mut().unwrap();
+      let mut map = std::mem::take(&mut inner.map);
       for (_, mut v) in map.drain() {
         ptr::drop_in_place(v.key.as_mut_ptr());
         ptr::drop_in_place(v.val.as_mut_ptr());
@@ -255,8 +276,8 @@ impl Drop for Cache {
 
       // The head and tail are not present in the map, so we drop them
       // explicitly.
-      let _ = Box::from_raw(self.head);
-      let _ = Box::from_raw(self.tail);
+      let _ = Box::from_raw(inner.head);
+      let _ = Box::from_raw(inner.tail);
     }
   }
 }

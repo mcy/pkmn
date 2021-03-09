@@ -39,7 +39,7 @@ impl<T> Resource<T> {
 impl<T: Endpoint> Resource<T> {
   /// Performs a network request to obtain the `T` represented by this
   /// [`Resource`].
-  pub fn load(&self, api: &mut Api) -> Result<Arc<T>, Error> {
+  pub fn load(&self, api: &Api) -> Result<Arc<T>, Error> {
     self.object.load(api)
   }
 }
@@ -76,7 +76,7 @@ impl<T: Named> NamedResource<T> {
 impl<T: Endpoint + Named> NamedResource<T> {
   /// Performs a network request to obtain the `T` represented by this
   /// [`NamedResource`].
-  pub fn load(&self, api: &mut Api) -> Result<Arc<T>, Error> {
+  pub fn load(&self, api: &Api) -> Result<Arc<T>, Error> {
     self.object.load(api)
   }
 }
