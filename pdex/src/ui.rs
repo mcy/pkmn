@@ -16,6 +16,7 @@ use tui::style::Color;
 use tui::style::Modifier;
 use tui::style::Style;
 use tui::symbols;
+use tui::text::Span;
 use tui::text::Spans;
 use tui::text::Text;
 use tui::widgets::Block;
@@ -35,6 +36,7 @@ use crate::dex::Dex;
 pub struct Ui {
   panes: Vec<Pane>,
   focused_idx: usize,
+  language: LanguageName,
 }
 
 impl Ui {
@@ -42,21 +44,24 @@ impl Ui {
   pub fn new() -> Self {
     Self {
       panes: vec![Pane {
-        history: vec![PaneType::Pokedex {
-          state: {
-            let mut state = ListState::default();
-            state.select(Some(0));
-            state
-          },
-        }],
+        history: vec![Page::new()],
       }],
       focused_idx: 0,
+      language: LanguageName::English,
     }
   }
 
   /// Processes a key press throughout the UI.
   pub fn process_key(&mut self, dex: &mut Dex, k: Key) {
-    self.panes[self.focused_idx].process_key(dex, k)
+    match k {
+      Key::Backspace => {
+        let pane = &mut self.panes[self.focused_idx];
+        if pane.history.len() > 1 {
+          pane.history.pop();
+        }
+      },
+      k => self.panes[self.focused_idx].process_key(dex, k),
+    }
   }
 
   /// Renders the UI onto a frame.
@@ -78,33 +83,73 @@ impl Ui {
       .zip(pane_rects.into_iter())
       .enumerate()
     {
-      pane.render(dex, f, rect);
+      pane.render(self.language, dex, f, rect);
     }
   }
 }
 
 struct Pane {
-  history: Vec<PaneType>,
+  history: Vec<Page>,
 }
 
-enum PaneType {
+#[derive(Clone)]
+enum Page {
+  MainMenu { pages: Vec<Page>, state: ListState },
   Pokedex { state: ListState },
+}
+
+impl Page {
+  fn name(&self, lang: LanguageName) -> &'static str {
+    match (self, lang) {
+      (Self::MainMenu { .. }, LanguageName::English) => "Main Menu",
+      (Self::Pokedex { .. }, LanguageName::English) => "Pokedex",
+      _ => todo!(),
+    }
+  }
+}
+
+fn zero_list_state() -> ListState {
+  let mut state = ListState::default();
+  state.select(Some(0));
+  state
+}
+
+impl Page {
+  fn new() -> Self {
+    Page::MainMenu {
+      pages: vec![Page::Pokedex {
+        state: zero_list_state(),
+      }],
+      state: zero_list_state(),
+    }
+  }
 }
 
 impl Pane {
   pub fn process_key(&mut self, dex: &mut Dex, k: Key) {
     match self.history.last_mut().unwrap() {
-      PaneType::Pokedex { state } => {
+      Page::MainMenu { pages, state } => match k {
+        Key::Up => state.select(state.selected().map(|x| x.saturating_sub(1))),
+        Key::Down => state.select(
+          state
+            .selected()
+            .map(|x| x.saturating_add(1).min(pages.len().saturating_sub(1))),
+        ),
+        Key::Char('\n') => {
+          let page = pages[state.selected().unwrap()].clone();
+          self.history.push(page)
+        }
+        _ => {}
+      },
+      Page::Pokedex { state } => {
         if let Ok(species) = dex.species().try_finish() {
           match k {
             Key::Up => {
               state.select(state.selected().map(|x| x.saturating_sub(1)))
             }
-            Key::Down => state.select(
-              state
-                .selected()
-                .map(|x| x.saturating_add(1).min(species.len())),
-            ),
+            Key::Down => state.select(state.selected().map(|x| {
+              x.saturating_add(1).min(species.len().saturating_sub(1))
+            })),
             _ => {}
           }
         }
@@ -114,12 +159,53 @@ impl Pane {
 
   pub fn render<B: Backend>(
     &mut self,
+    lang: LanguageName,
     dex: &mut Dex,
     f: &mut Frame<'_, B>,
     rect: Rect,
   ) {
     match self.history.last_mut().unwrap() {
-      PaneType::Pokedex { state } => {
+      Page::MainMenu { pages, state } => {
+        let welcome = Text::from(vec![Spans::from(format!(
+          "pdex v{}",
+          env!("CARGO_PKG_VERSION")
+        ))]);
+
+        let items = pages
+          .iter()
+          .map(|page| ListItem::new(page.name(lang).to_string()))
+          .collect::<Vec<_>>();
+
+        let max_x = 30;
+        let max_y = 20;
+        let margin_x = rect.width.saturating_sub(max_x) / 2;
+        let margin_y = rect.height.saturating_sub(max_y) / 2;
+
+        let rect = Rect::new(margin_x, margin_y, max_x, max_y);
+
+        let layout = Layout::default()
+          .direction(Direction::Vertical)
+          .margin(2)
+          .constraints([
+            Constraint::Length(welcome.height() as u16),
+            Constraint::Length(pages.len() as u16 + 2),
+            Constraint::Min(0),
+          ])
+          .split(rect);
+
+        f.render_widget(
+          Paragraph::new(welcome).alignment(Alignment::Center),
+          layout[0],
+        );
+        f.render_stateful_widget(
+          List::new(items)
+            .block(Block::default().borders(Borders::ALL))
+            .highlight_symbol(">>"),
+          layout[1],
+          state,
+        );
+      }
+      Page::Pokedex { state } => {
         let block = Block::default().borders(Borders::ALL).title("NatDex");
         match dex.species().try_finish() {
           Ok(species) => {
@@ -151,7 +237,6 @@ impl Pane {
 
             let list = List::new(items)
               .block(block)
-              //.style(Style::default().fg(Color::White))
               .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
               .highlight_symbol(">>");
             f.render_stateful_widget(list, rect, state);
