@@ -19,12 +19,13 @@ use tui::backend::TermionBackend;
 use tui::Terminal;
 
 mod dex;
+mod download;
 mod ui;
 
 fn main() -> Result<(), io::Error> {
   let api = Arc::new(Api::with_cache(Cache::new(2048)));
 
-  let (mut dex, _) = dex::Dex::download(Arc::clone(&api));
+  let mut dex = dex::Dex::new(Arc::clone(&api));
 
   let mut ui = ui::Ui::new();
 

@@ -7,6 +7,7 @@ use pkmn::model::LanguageName;
 use termion::event::Key;
 
 use tui::backend::Backend;
+use tui::layout::Alignment;
 use tui::layout::Constraint;
 use tui::layout::Direction;
 use tui::layout::Layout;
@@ -16,11 +17,14 @@ use tui::style::Modifier;
 use tui::style::Style;
 use tui::symbols;
 use tui::text::Spans;
+use tui::text::Text;
 use tui::widgets::Block;
 use tui::widgets::Borders;
+use tui::widgets::Gauge;
 use tui::widgets::List;
 use tui::widgets::ListItem;
 use tui::widgets::ListState;
+use tui::widgets::Paragraph;
 use tui::widgets::Tabs;
 use tui::Frame;
 use tui::Terminal;
@@ -90,15 +94,21 @@ enum PaneType {
 impl Pane {
   pub fn process_key(&mut self, dex: &mut Dex, k: Key) {
     match self.history.last_mut().unwrap() {
-      PaneType::Pokedex { state } => match k {
-        Key::Up => state.select(state.selected().map(|x| x.saturating_sub(1))),
-        Key::Down => state.select(
-          state
-            .selected()
-            .map(|x| x.saturating_add(1).min(dex.species.len())),
-        ),
-        _ => {}
-      },
+      PaneType::Pokedex { state } => {
+        if let Ok(species) = dex.species().try_finish() {
+          match k {
+            Key::Up => {
+              state.select(state.selected().map(|x| x.saturating_sub(1)))
+            }
+            Key::Down => state.select(
+              state
+                .selected()
+                .map(|x| x.saturating_add(1).min(species.len())),
+            ),
+            _ => {}
+          }
+        }
+      }
     }
   }
 
@@ -110,37 +120,84 @@ impl Pane {
   ) {
     match self.history.last_mut().unwrap() {
       PaneType::Pokedex { state } => {
-        let mut species = dex
-          .species
-          .iter()
-          .map(|(_, species)| {
-            let name = species
-              .localized_names
-              .get(LanguageName::English)
-              .unwrap_or("???");
-
-            let number = species
-              .pokedex_numbers
+        let block = Block::default().borders(Borders::ALL).title("NatDex");
+        match dex.species().try_finish() {
+          Ok(species) => {
+            let mut species = species
               .iter()
-              .find(|n| n.pokedex.name() == Some("national"))
-              .unwrap()
-              .number;
-            (number, name)
-          })
-          .collect::<Vec<_>>();
-        species.sort_by_key(|&(number, _)| number);
+              .map(|(_, species)| {
+                let name = species
+                  .localized_names
+                  .get(LanguageName::English)
+                  .unwrap_or("???");
 
-        let items = species
-          .into_iter()
-          .map(|(number, name)| ListItem::new(format!("#{:03} {}", number, name)))
-          .collect::<Vec<_>>();
+                let number = species
+                  .pokedex_numbers
+                  .iter()
+                  .find(|n| n.pokedex.name() == Some("national"))
+                  .unwrap()
+                  .number;
+                (number, name)
+              })
+              .collect::<Vec<_>>();
+            species.sort_by_key(|&(number, _)| number);
 
-        let list = List::new(items)
-          .block(Block::default().title("NatDex").borders(Borders::ALL))
-          //.style(Style::default().fg(Color::White))
-          .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
-          .highlight_symbol(">>");
-        f.render_stateful_widget(list, rect, state);
+            let items = species
+              .into_iter()
+              .map(|(number, name)| {
+                ListItem::new(format!("#{:03} {}", number, name))
+              })
+              .collect::<Vec<_>>();
+
+            let list = List::new(items)
+              .block(block)
+              //.style(Style::default().fg(Color::White))
+              .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
+              .highlight_symbol(">>");
+            f.render_stateful_widget(list, rect, state);
+          }
+          Err(progress) => {
+            let message = Text::from(format!(
+              "Downloading resources. This may take a while.\n{}",
+              progress.message.unwrap_or("".to_string())
+            ));
+
+            let mut ratio = progress.completed as f64 / progress.total as f64;
+            if ratio < 0.0 || ratio > 1.0 || ratio.is_nan() {
+              ratio = 0.0;
+            }
+            let label = format!("{}/{}", progress.completed, progress.total);
+
+            let layout = Layout::default()
+              .direction(Direction::Vertical)
+              .margin(1)
+              .constraints([
+                Constraint::Length(message.height() as _),
+                Constraint::Length(1),
+                Constraint::Min(0),
+              ])
+              .split(block.inner(rect));
+
+            f.render_widget(
+              Paragraph::new(message)
+                .style(Style::default().fg(Color::White))
+                .alignment(Alignment::Center),
+              layout[0],
+            );
+            f.render_widget(
+              Gauge::default()
+                .gauge_style(
+                  Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::ITALIC),
+                )
+                .label(label)
+                .ratio(ratio),
+              layout[1],
+            );
+            f.render_widget(block, rect);
+          }
+        };
       }
     }
   }
