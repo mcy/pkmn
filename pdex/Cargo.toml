@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 crossbeam = "0.8.0"
+indicatif = "0.15.0"
 pkmn = { path = ".." }
 termion = "1.5"
 tui = "0.14.0"

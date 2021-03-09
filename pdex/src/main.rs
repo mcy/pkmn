@@ -22,6 +22,12 @@ mod dex;
 mod ui;
 
 fn main() -> Result<(), io::Error> {
+  let api = Arc::new(Api::with_cache(Cache::new(2048)));
+
+  let (mut dex, _) = dex::Dex::download(Arc::clone(&api));
+
+  let mut ui = ui::Ui::new();
+
   let (keys_sink, keys) = mpsc::channel();
   thread::spawn(move || {
     for key in io::stdin().keys() {
@@ -32,11 +38,6 @@ fn main() -> Result<(), io::Error> {
   let stdout = AlternateScreen::from(io::stdout().into_raw_mode()?);
   let backend = TermionBackend::new(stdout);
   let mut terminal = Terminal::new(backend)?;
-
-  let api = Arc::new(Api::with_cache(Cache::new(2048)));
-  let mut dex = dex::Dex::new(api);
-
-  let mut ui = ui::Ui::new();
 
   loop {
     terminal.draw(|f| ui.render(&mut dex, f))?;

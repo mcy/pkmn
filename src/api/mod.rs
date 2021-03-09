@@ -1,5 +1,6 @@
 //! A PokéAPI client.
 
+use std::borrow::Borrow;
 use std::io;
 use std::io::Read;
 use std::marker::PhantomData;
@@ -104,49 +105,45 @@ impl Api {
     )
   }
 
-  /// Iterate over all resources of type `T`.
+  /// Returns an iterator over all resources of a particular type.
   ///
-  /// The returned iterator is lazy, and no requests will occur until the first
-  /// call of `next()`. If an error occurs during pagination, all following
-  /// calls to `next()` will return `None`.
-  ///
-  /// This function will request `per_page` entries at a time.
+  /// If fine-grained control of how network requests are done is needed,
+  /// consider using the [`Listing`] type instead.
   pub fn all<T: Endpoint>(
     &self,
     per_page: usize,
-  ) -> impl Iterator<Item = Result<Resource<T>, Error>> + '_ {
-    let mut page: Option<Arc<Page<T>>> = None;
-    let mut results = Vec::new();
+  ) -> impl Iterator<Item = Result<Arc<T>, Error>> + '_ {
+    let mut listing = Listing::<T, _>::new(self, per_page);
+    let mut results: Option<ListingResults<T>> = None;
+    let mut result_idx = 0;
     let mut had_err = false;
     std::iter::from_fn(move || {
       if had_err {
         return None;
       }
 
-      if page.is_none() || results.is_empty() {
-        let url;
-        let next = match page.as_ref() {
-          Some(page) => page.next.as_ref()?,
-          None => {
-            url = format!("{}/{}?limit={}", self.base_url, T::NAME, per_page);
-            &url
-          }
-        };
-        match self.request_json::<Page<_>>(next) {
-          Ok(p) => {
-            results = p.results.clone();
-            results.reverse();
-            page = Some(p)
+      if results.is_none() || results.as_ref().unwrap().len() >= result_idx {
+        results = match listing.advance() {
+          Ok(results) => {
+            result_idx = 0;
+            Some(results?)
           }
           Err(e) => {
             had_err = true;
-            return Some(Err(e.into()));
+            return Some(Err(e));
           }
         }
       }
 
-      results.pop().map(Ok)
+      let r = &results.as_ref().unwrap()[result_idx];
+      result_idx += 1;
+      Some(r.load(self))
     })
+  }
+
+  /// Returns a [`Listing`] that borrows `self`.
+  pub fn listing_of<T: Endpoint>(&self, per_page: usize) -> Listing<T, &Self> {
+    Listing::new(self, per_page)
   }
 
   /// Try to get the specific resource of type `T` with the given name.
@@ -164,15 +161,91 @@ pub trait Endpoint:
   const NAME: &'static str;
 }
 
+/// A lazy listing over all resources of type `T`.
+///
+/// This type will work through PokeAPI's listings of all resources of a
+/// particular type, and exposes fine-grained control over pagination.
+///
+/// This type is generic on the pointer type for [`Api`]; for example, both a
+/// normal reference and an `Arc` may be passed to `new`.
+#[derive(Clone)]
+pub struct Listing<T, A> {
+  api: A,
+  page: Option<Arc<Page<T>>>,
+  per_page: usize,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 struct Page<T> {
   next: Option<String>,
   results: Vec<Resource<T>>,
+  count: u32,
+}
 
-  #[allow(unused)]
-  previous: Option<String>,
-  #[allow(unused)]
-  count: u64,
+/// Results from a [`Listing`] operation.
+///
+/// This type may be cheaply cloned, since it is reference-counted under the
+/// hood.
+#[derive(Clone)]
+pub struct ListingResults<T> {
+  page: Arc<Page<T>>,
+}
+
+impl<T> std::ops::Deref for ListingResults<T> {
+  type Target = [Resource<T>];
+  fn deref(&self) -> &[Resource<T>] {
+    &self.page.results
+  }
+}
+
+impl<T: Endpoint, A: Borrow<Api>> Listing<T, A> {
+  /// Creates a new resource listing.
+  ///
+  /// This function does nothing on its own; [`Listing::advance()`] must be
+  /// called to drive network requests forward.
+  pub fn new(api: A, per_page: usize) -> Self {
+    Self {
+      api,
+      page: None,
+      per_page,
+    }
+  }
+
+  /// Drives this listing forward by requesting the next page in the listing.
+  pub fn advance(&mut self) -> Result<Option<ListingResults<T>>, Error> {
+    let url;
+    let next = match self.page.as_ref() {
+      Some(page) => match page.next.as_ref() {
+        Some(next) => next,
+        None => return Ok(None),
+      },
+      None => {
+        url = format!(
+          "{}/{}?limit={}",
+          self.api.borrow().base_url,
+          T::NAME,
+          self.per_page
+        );
+        &url
+      }
+    };
+
+    self.page = Some(self.api.borrow().request_json::<Page<_>>(next)?);
+    Ok(self.current_results())
+  }
+
+  /// Returns a copy of the results for the current page.
+  pub fn current_results(&self) -> Option<ListingResults<T>> {
+    self.page.as_ref().map(|p| ListingResults {
+      page: Arc::clone(&p),
+    })
+  }
+
+  /// Returns an estimate for the total number of resources in this listing, if
+  /// one is available.
+  pub fn estimate_len(&self) -> Option<usize> {
+    self.page.as_ref().map(|p| p.count as usize)
+  }
 }
 
 /// A lazily-loaded blob.
@@ -191,7 +264,7 @@ impl Blob {
     Self { url }
   }
 
-  /// Returns the `url` that points to the blob.
+  /// Returns the URL that points to the blob.
   pub fn url(&self) -> &str {
     &self.url
   }
@@ -224,7 +297,7 @@ impl<T> Lazy<T> {
     }
   }
 
-  /// Returns the `url` that points to the object.
+  /// Returns the URL that points to the object.
   pub fn url(&self) -> &str {
     &self.url
   }

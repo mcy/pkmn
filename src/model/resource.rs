@@ -34,6 +34,11 @@ impl<T> Resource<T> {
       None => None,
     }
   }
+
+  /// Returns the URL that points to the object.
+  pub fn url(&self) -> &str {
+    self.object.url()
+  }
 }
 
 impl<T: Endpoint> Resource<T> {
@@ -70,6 +75,11 @@ impl<T: Named> NamedResource<T> {
   /// `variant`.
   pub fn is(&self, variant: T::Variant) -> bool {
     self.name.is(variant)
+  }
+
+  /// Returns the URL that points to the object.
+  pub fn url(&self) -> &str {
+    self.object.url()
   }
 }
 

@@ -110,23 +110,30 @@ impl Pane {
   ) {
     match self.history.last_mut().unwrap() {
       PaneType::Pokedex { state } => {
-        let mut items = Vec::new();
-        for species in dex.species.iter() {
-          let species = species.unwrap();
-          let name = species
-            .localized_names
-            .get(LanguageName::English)
-            .unwrap_or("???");
+        let mut species = dex
+          .species
+          .iter()
+          .map(|(_, species)| {
+            let name = species
+              .localized_names
+              .get(LanguageName::English)
+              .unwrap_or("???");
 
-          let number = species
-            .pokedex_numbers
-            .iter()
-            .find(|n| n.pokedex.name() == Some("national"))
-            .unwrap()
-            .number;
+            let number = species
+              .pokedex_numbers
+              .iter()
+              .find(|n| n.pokedex.name() == Some("national"))
+              .unwrap()
+              .number;
+            (number, name)
+          })
+          .collect::<Vec<_>>();
+        species.sort_by_key(|&(number, _)| number);
 
-          items.push(ListItem::new(format!("#{:03} {}", number, name)))
-        }
+        let items = species
+          .into_iter()
+          .map(|(number, name)| ListItem::new(format!("#{:03} {}", number, name)))
+          .collect::<Vec<_>>();
 
         let list = List::new(items)
           .block(Block::default().title("NatDex").borders(Borders::ALL))
