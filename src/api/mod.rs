@@ -157,7 +157,9 @@ impl Api {
 
 /// An endpoint type, representing a type that can be requested directly from
 /// an [`Api`].
-pub trait Endpoint: Serialize + DeserializeOwned + Clone + Send + Sync + 'static {
+pub trait Endpoint:
+  Serialize + DeserializeOwned + Clone + Send + Sync + 'static
+{
   /// The name of the endpoint, used to construct the request.
   const NAME: &'static str;
 }
