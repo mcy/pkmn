@@ -1,17 +1,11 @@
 //! Leaf components.
-//! 
-//! 
-
-use std::iter;
+//!
+//!
 
 use pkmn::model::LanguageName;
 
 use termion::event::Key;
-use termion::raw::RawTerminal;
-use termion::screen::AlternateScreen;
 
-use tui::backend::Backend;
-use tui::backend::TermionBackend;
 use tui::layout::Alignment;
 use tui::layout::Constraint;
 use tui::layout::Direction;
@@ -20,8 +14,6 @@ use tui::layout::Rect;
 use tui::style::Color;
 use tui::style::Modifier;
 use tui::style::Style;
-use tui::symbols;
-use tui::text::Span;
 use tui::text::Spans;
 use tui::text::Text;
 use tui::widgets::Block;
@@ -31,8 +23,6 @@ use tui::widgets::List;
 use tui::widgets::ListItem;
 use tui::widgets::ListState;
 use tui::widgets::Paragraph;
-use tui::widgets::Tabs;
-use tui::Terminal;
 
 use crate::dex::Dex;
 use crate::ui::browser::CmdBuffer;

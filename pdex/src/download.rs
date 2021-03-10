@@ -3,7 +3,6 @@
 //! Includes infrastructure for sending messages about the progress of the
 //! download.
 
-use std::mem;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;

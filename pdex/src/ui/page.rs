@@ -2,32 +2,14 @@
 
 use termion::event::Key;
 
-use tui::backend::Backend;
-use tui::layout::Alignment;
 use tui::layout::Constraint;
 use tui::layout::Direction;
 use tui::layout::Layout;
 use tui::layout::Rect;
-use tui::style::Color;
-use tui::style::Modifier;
-use tui::style::Style;
-use tui::symbols;
-use tui::text::Span;
-use tui::text::Spans;
-use tui::text::Text;
-use tui::widgets::Block;
-use tui::widgets::Borders;
-use tui::widgets::Gauge;
-use tui::widgets::List;
-use tui::widgets::ListItem;
-use tui::widgets::ListState;
-use tui::widgets::Paragraph;
-use tui::widgets::Tabs;
-use tui::Terminal;
 
 use crate::dex::Dex;
 use crate::ui::browser::CmdBuffer;
-use crate::ui::browser::Command;
+
 use crate::ui::browser::Frame;
 use crate::ui::component::Component;
 
@@ -38,19 +20,19 @@ pub struct Page {
 
 impl Page {
   pub fn from_url(url: &str) -> Page {
-  use crate::ui::component::*;
-  match url {
-    "pdex://main-menu" => Page {
-      nodes: vec![Node::Leaf(None, Box::new(MainMenu::new()))],
-      focus_path: vec![0],
-    },
-    "pdex://pokedex" => Page {
-      nodes: vec![Node::Leaf(None, Box::new(Pokedex::new()))],
-      focus_path: vec![0],
-    },
-    _ => todo!(),
+    use crate::ui::component::*;
+    match url {
+      "pdex://main-menu" => Page {
+        nodes: vec![Node::Leaf(None, Box::new(MainMenu::new()))],
+        focus_path: vec![0],
+      },
+      "pdex://pokedex" => Page {
+        nodes: vec![Node::Leaf(None, Box::new(Pokedex::new()))],
+        focus_path: vec![0],
+      },
+      _ => todo!(),
+    }
   }
-}
 
   fn get_focus(&mut self, back: usize) -> Option<&mut Node> {
     let mut node = self.nodes.get_mut(*self.focus_path.get(0)?)?;

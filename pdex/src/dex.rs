@@ -4,23 +4,11 @@
 //! can be processed to display to a user.
 
 use std::collections::HashMap;
-use std::iter;
-use std::mem;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
 use std::sync::mpsc;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
-use std::sync::Weak;
-use std::thread;
 
 use pkmn::api;
-use pkmn::api::Cache;
 use pkmn::api::Endpoint;
-use pkmn::model::Item;
-use pkmn::model::Location;
-use pkmn::model::Move;
 use pkmn::model::Species;
 use pkmn::Api;
 
@@ -45,7 +33,6 @@ impl Dex {
     api: Arc<Api>,
   ) {
     download.start(move |n| {
-      use Ordering::SeqCst;
       let mut list = api.listing_of::<T>(64);
       let mut result = match list.advance() {
         Ok(x) => x.unwrap(),
