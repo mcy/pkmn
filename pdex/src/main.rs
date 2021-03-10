@@ -27,7 +27,7 @@ fn main() -> Result<(), io::Error> {
 
   let mut dex = dex::Dex::new(Arc::clone(&api));
 
-  let mut ui = ui::Ui::new();
+  let mut ui = ui::browser::Browser::new();
 
   let (keys_sink, keys) = mpsc::channel();
   thread::spawn(move || {
@@ -46,7 +46,7 @@ fn main() -> Result<(), io::Error> {
     while let Ok(k) = keys.try_recv() {
       match k? {
         Key::Ctrl('c') => return Ok(()),
-        k => ui.process_key(&mut dex, k),
+        k => ui.process_key(k, &mut dex),
       }
     }
   }
