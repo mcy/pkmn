@@ -8,10 +8,11 @@ use tui::layout::Layout;
 use tui::layout::Rect;
 
 use crate::dex::Dex;
-use crate::ui::browser::CmdBuffer;
-
-use crate::ui::browser::Frame;
+use crate::ui::browser::CommandBuffer;
 use crate::ui::component::Component;
+use crate::ui::component::KeyArgs;
+use crate::ui::component::RenderArgs;
+use crate::ui::Frame;
 
 pub struct Page {
   nodes: Vec<Node>,
@@ -49,9 +50,16 @@ impl Page {
     Some(node)
   }
 
-  pub fn process_key(&mut self, k: Key, dex: &mut Dex, cb: &mut CmdBuffer) {
+  pub fn process_key(
+    &mut self,
+    key: Key,
+    dex: &mut Dex,
+    commands: &mut CommandBuffer,
+  ) {
     match self.get_focus(0) {
-      Some(Node::Leaf(_, component)) => component.process_key(k, dex, cb),
+      Some(Node::Leaf(_, component)) => {
+        component.process_key(KeyArgs { key, dex, commands })
+      }
       _ => {}
     }
   }
@@ -61,7 +69,7 @@ impl Page {
     fn inner(
       nodes: &mut Vec<Node>,
       focus_path: &[usize],
-      focus: bool,
+      is_focused: bool,
       dir: Direction,
       dex: &mut Dex,
       f: &mut Frame,
@@ -90,17 +98,33 @@ impl Page {
       for (i, (node, rect)) in
         nodes.iter_mut().zip(layout.into_iter()).enumerate()
       {
-        let focus = focus || focus_idx == Some(i);
+        let is_focused = is_focused || focus_idx == Some(i);
 
         match node {
-          Node::Vertical(_, nodes) => {
-            inner(nodes, focus_path, focus, Direction::Vertical, dex, f, rect)
-          }
-          #[rustfmt::skip]
-          Node::Horizontal(_, nodes) => {
-            inner(nodes, focus_path, focus, Direction::Horizontal, dex, f, rect)
-          },
-          Node::Leaf(_, component) => component.render(focus, dex, f, rect),
+          Node::Vertical(_, nodes) => inner(
+            nodes,
+            focus_path,
+            is_focused,
+            Direction::Vertical,
+            dex,
+            f,
+            rect,
+          ),
+          Node::Horizontal(_, nodes) => inner(
+            nodes,
+            focus_path,
+            is_focused,
+            Direction::Horizontal,
+            dex,
+            f,
+            rect,
+          ),
+          Node::Leaf(_, component) => component.render(RenderArgs {
+            is_focused,
+            dex,
+            rect,
+            output: f,
+          }),
         }
       }
     }

@@ -26,6 +26,14 @@
 //! is only sent to the focused component within the focused pane. Rendering is
 //! done recursively every frame.
 
+use termion::raw::RawTerminal;
+use termion::screen::AlternateScreen;
+use tui::backend::TermionBackend;
+
 pub mod browser;
 pub mod component;
 pub mod page;
+
+/// The specific instantiation of [`tui::Frame`] used here.
+pub type Frame<'a> =
+  tui::Frame<'a, TermionBackend<AlternateScreen<RawTerminal<std::io::Stdout>>>>;

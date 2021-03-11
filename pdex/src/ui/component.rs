@@ -1,6 +1,4 @@
 //! Leaf components.
-//!
-//!
 
 use pkmn::model::LanguageName;
 
@@ -25,22 +23,35 @@ use tui::widgets::ListState;
 use tui::widgets::Paragraph;
 
 use crate::dex::Dex;
-use crate::ui::browser::CmdBuffer;
-use crate::ui::browser::Command;
-use crate::ui::browser::Frame;
+use crate::ui::browser::CommandBuffer;
+use crate::ui::Frame;
 
-pub trait Component {
-  fn process_key(&mut self, k: Key, dex: &mut Dex, cb: &mut CmdBuffer);
-
-  fn render(
-    &mut self,
-    is_focused: bool,
-    dex: &mut Dex,
-    f: &mut Frame,
-    rect: Rect,
-  );
+/// Arguments fot [`Component::process_key()`].
+pub struct KeyArgs<'browser> {
+  pub key: Key,
+  pub dex: &'browser mut Dex,
+  pub commands: &'browser mut CommandBuffer,
 }
 
+/// Arguments fot [`Component::render()`].
+pub struct RenderArgs<'browser, 'term> {
+  pub is_focused: bool,
+  pub dex: &'browser mut Dex,
+  pub rect: Rect,
+  pub output: &'browser mut Frame<'term>,
+}
+
+/// A leaf component in a page.
+pub trait Component {
+  /// Processes a key-press, either mutating own state or issuing a command to
+  /// the browser.
+  fn process_key(&mut self, args: KeyArgs);
+
+  /// Renders this component.
+  fn render(&mut self, args: RenderArgs);
+}
+
+/// The main menu component.
 pub struct MainMenu {
   urls: Vec<String>,
   state: ListState,
@@ -61,8 +72,8 @@ impl MainMenu {
 }
 
 impl Component for MainMenu {
-  fn process_key(&mut self, k: Key, _: &mut Dex, cb: &mut CmdBuffer) {
-    match k {
+  fn process_key(&mut self, args: KeyArgs) {
+    match args.key {
       Key::Up => self
         .state
         .select(self.state.selected().map(|x| x.saturating_sub(1))),
@@ -73,14 +84,14 @@ impl Component for MainMenu {
           .map(|x| x.saturating_add(1).min(self.urls.len().saturating_sub(1))),
       ),
       Key::Char('\n') => {
-        let urls = self.urls[self.state.selected().unwrap()].clone();
-        cb.commands.push(Command::Navigate(urls))
+        let url = self.urls[self.state.selected().unwrap()].clone();
+        args.commands.navigate_to(url)
       }
       _ => {}
     }
   }
 
-  fn render(&mut self, _: bool, _: &mut Dex, f: &mut Frame, rect: Rect) {
+  fn render(&mut self, args: RenderArgs) {
     let welcome = Text::from(vec![Spans::from(format!(
       "pdex v{}",
       env!("CARGO_PKG_VERSION")
@@ -92,6 +103,7 @@ impl Component for MainMenu {
       .map(|url| ListItem::new(url.as_str()))
       .collect::<Vec<_>>();
 
+    let rect = args.rect;
     let max_x = 30;
     let max_y = 20;
     let margin_x = rect.width.saturating_sub(max_x) / 2;
@@ -108,12 +120,12 @@ impl Component for MainMenu {
         Constraint::Min(0),
       ])
       .split(rect);
-    f.render_widget(
+    args.output.render_widget(
       Paragraph::new(welcome).alignment(Alignment::Center),
       layout[0],
     );
 
-    f.render_stateful_widget(
+    args.output.render_stateful_widget(
       List::new(items)
         .block(Block::default().borders(Borders::ALL))
         .highlight_symbol(">>"),
@@ -123,6 +135,7 @@ impl Component for MainMenu {
   }
 }
 
+/// The pokedex component.
 pub struct Pokedex {
   state: ListState,
 }
@@ -136,9 +149,9 @@ impl Pokedex {
 }
 
 impl Component for Pokedex {
-  fn process_key(&mut self, k: Key, dex: &mut Dex, _: &mut CmdBuffer) {
-    if let Ok(species) = dex.species().try_finish() {
-      match k {
+  fn process_key(&mut self, args: KeyArgs) {
+    if let Ok(species) = args.dex.species().try_finish() {
+      match args.key {
         Key::Up => self
           .state
           .select(self.state.selected().map(|x| x.saturating_sub(1))),
@@ -153,9 +166,9 @@ impl Component for Pokedex {
     }
   }
 
-  fn render(&mut self, _: bool, dex: &mut Dex, f: &mut Frame, rect: Rect) {
+  fn render(&mut self, args: RenderArgs) {
     let block = Block::default().borders(Borders::ALL).title("NatDex");
-    match dex.species().try_finish() {
+    match args.dex.species().try_finish() {
       Ok(species) => {
         let mut species = species
           .iter()
@@ -187,7 +200,9 @@ impl Component for Pokedex {
           .block(block)
           .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
           .highlight_symbol(">>");
-        f.render_stateful_widget(list, rect, &mut self.state);
+        args
+          .output
+          .render_stateful_widget(list, args.rect, &mut self.state);
       }
       Err(progress) => {
         let message = Text::from(format!(
@@ -209,15 +224,15 @@ impl Component for Pokedex {
             Constraint::Length(1),
             Constraint::Min(0),
           ])
-          .split(block.inner(rect));
+          .split(block.inner(args.rect));
 
-        f.render_widget(
+        args.output.render_widget(
           Paragraph::new(message)
             .style(Style::default().fg(Color::White))
             .alignment(Alignment::Center),
           layout[0],
         );
-        f.render_widget(
+        args.output.render_widget(
           Gauge::default()
             .gauge_style(
               Style::default()
@@ -228,7 +243,7 @@ impl Component for Pokedex {
             .ratio(ratio),
           layout[1],
         );
-        f.render_widget(block, rect);
+        args.output.render_widget(block, args.rect);
       }
     };
   }
