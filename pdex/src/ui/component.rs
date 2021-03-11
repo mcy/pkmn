@@ -43,8 +43,22 @@ pub struct RenderArgs<'browser, 'term> {
   pub output: &'browser mut Frame<'term>,
 }
 
+#[doc(hidden)]
+pub trait BoxClone {
+  fn box_clone(&self) -> Box<dyn Component>;
+}
+
+impl<T: 'static> BoxClone for T
+where
+  T: Clone + Component,
+{
+  fn box_clone(&self) -> Box<dyn Component> {
+    Box::new(self.clone())
+  }
+}
+
 /// A leaf component in a page.
-pub trait Component {
+pub trait Component: BoxClone {
   /// Processes a key-press, either mutating own state or issuing a command to
   /// the browser.
   fn process_key(&mut self, args: KeyArgs);
@@ -54,6 +68,7 @@ pub trait Component {
 }
 
 /// The main menu component.
+#[derive(Clone)]
 pub struct MainMenu {
   urls: Vec<String>,
   state: ListState,
@@ -85,11 +100,11 @@ impl Component for MainMenu {
           .selected()
           .map(|x| x.saturating_add(1).min(self.urls.len().saturating_sub(1))),
       ),
-      KeyCode::Char('\n') => {
+      KeyCode::Enter => {
         let url = self.urls[self.state.selected().unwrap()].clone();
         args.commands.navigate_to(url)
       }
-      _ => {}
+      _ => args.commands.release_key(),
     }
   }
 
@@ -106,8 +121,8 @@ impl Component for MainMenu {
       .collect::<Vec<_>>();
 
     let rect = args.rect;
-    let max_x = 30;
-    let max_y = 20;
+    let max_x = 30.min(rect.width);
+    let max_y = 20.min(rect.height);
     let margin_x = rect.width.saturating_sub(max_x) / 2;
     let margin_y = rect.height.saturating_sub(max_y) / 2;
 
@@ -138,6 +153,7 @@ impl Component for MainMenu {
 }
 
 /// The pokedex component.
+#[derive(Clone)]
 pub struct Pokedex {
   state: ListState,
 }
@@ -163,7 +179,7 @@ impl Component for Pokedex {
             .selected()
             .map(|x| x.saturating_add(1).min(species.len().saturating_sub(1))),
         ),
-        _ => {}
+        _ => args.commands.release_key(),
       }
     }
   }
