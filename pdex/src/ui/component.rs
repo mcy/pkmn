@@ -2,7 +2,9 @@
 
 use pkmn::model::LanguageName;
 
-use termion::event::Key;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyModifiers;
 
 use tui::layout::Alignment;
 use tui::layout::Constraint;
@@ -28,7 +30,7 @@ use crate::ui::Frame;
 
 /// Arguments fot [`Component::process_key()`].
 pub struct KeyArgs<'browser> {
-  pub key: Key,
+  pub key: KeyEvent,
   pub dex: &'browser mut Dex,
   pub commands: &'browser mut CommandBuffer,
 }
@@ -73,17 +75,17 @@ impl MainMenu {
 
 impl Component for MainMenu {
   fn process_key(&mut self, args: KeyArgs) {
-    match args.key {
-      Key::Up => self
+    match args.key.code {
+      KeyCode::Up => self
         .state
         .select(self.state.selected().map(|x| x.saturating_sub(1))),
-      Key::Down => self.state.select(
+      KeyCode::Down => self.state.select(
         self
           .state
           .selected()
           .map(|x| x.saturating_add(1).min(self.urls.len().saturating_sub(1))),
       ),
-      Key::Char('\n') => {
+      KeyCode::Char('\n') => {
         let url = self.urls[self.state.selected().unwrap()].clone();
         args.commands.navigate_to(url)
       }
@@ -151,11 +153,11 @@ impl Pokedex {
 impl Component for Pokedex {
   fn process_key(&mut self, args: KeyArgs) {
     if let Ok(species) = args.dex.species().try_finish() {
-      match args.key {
-        Key::Up => self
+      match args.key.code {
+        KeyCode::Up => self
           .state
           .select(self.state.selected().map(|x| x.saturating_sub(1))),
-        Key::Down => self.state.select(
+        KeyCode::Down => self.state.select(
           self
             .state
             .selected()

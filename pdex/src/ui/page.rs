@@ -1,6 +1,8 @@
 //! Browseable pages.
 
-use termion::event::Key;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyModifiers;
 
 use tui::layout::Constraint;
 use tui::layout::Direction;
@@ -52,7 +54,7 @@ impl Page {
 
   pub fn process_key(
     &mut self,
-    key: Key,
+    key: KeyEvent,
     dex: &mut Dex,
     commands: &mut CommandBuffer,
   ) {

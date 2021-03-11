@@ -7,22 +7,33 @@ use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
 
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyModifiers;
+use crossterm::terminal::EnterAlternateScreen;
+use crossterm::terminal::LeaveAlternateScreen;
+
 use pkmn::api::Cache;
 use pkmn::Api;
 
-use termion::event::Key;
-use termion::input::TermRead as _;
-use termion::raw::IntoRawMode as _;
-use termion::screen::AlternateScreen;
-
-use tui::backend::TermionBackend;
+use tui::backend::CrosstermBackend;
 use tui::Terminal;
 
 mod dex;
 mod download;
 mod ui;
 
-fn main() -> Result<(), io::Error> {
+fn main() -> Result<(), crossterm::ErrorKind> {
+  crossterm::terminal::enable_raw_mode()?;
+  crossterm::execute!(io::stdout(), EnterAlternateScreen);
+  let res = real_main();
+  crossterm::execute!(io::stdout(), LeaveAlternateScreen);
+  crossterm::terminal::disable_raw_mode()?;
+
+  res
+}
+
+fn real_main() -> Result<(), crossterm::ErrorKind> {
   let api = Arc::new(Api::with_cache(Cache::new(2048)));
 
   let mut dex = dex::Dex::new(Arc::clone(&api));
@@ -30,23 +41,29 @@ fn main() -> Result<(), io::Error> {
   let mut ui = ui::browser::Browser::new();
 
   let (keys_sink, keys) = mpsc::channel();
-  thread::spawn(move || {
-    for key in io::stdin().keys() {
-      let _ = keys_sink.send(key);
-    }
+  thread::spawn(move || loop {
+    let key = match crossterm::event::read() {
+      Ok(crossterm::event::Event::Key(k)) => Ok(k),
+      Err(e) => Err(e),
+      _ => continue,
+    };
+
+    let _ = keys_sink.send(key);
   });
 
-  let stdout = AlternateScreen::from(io::stdout().into_raw_mode()?);
-  let backend = TermionBackend::new(stdout);
-  let mut terminal = Terminal::new(backend)?;
+  crossterm::terminal::enable_raw_mode()?;
+  let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
 
   loop {
     terminal.draw(|f| ui.render(&mut dex, f))?;
 
     while let Ok(k) = keys.try_recv() {
-      match k? {
-        Key::Ctrl('c') => return Ok(()),
-        k => ui.process_key(k, &mut dex),
+      let k = k?;
+      match k.code {
+        KeyCode::Char('c') if k.modifiers.contains(KeyModifiers::CONTROL) => {
+          return Ok(())
+        }
+        _ => ui.process_key(k, &mut dex),
       }
     }
   }

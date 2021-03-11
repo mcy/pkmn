@@ -2,7 +2,9 @@
 
 use std::iter;
 
-use termion::event::Key;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyModifiers;
 
 use tui::layout::Constraint;
 use tui::layout::Direction;
@@ -39,10 +41,10 @@ impl Browser {
   ///
   /// Some keys may be intercepted by the browser; for example, backspace will
   /// go back one step in history.
-  pub fn process_key(&mut self, k: Key, dex: &mut Dex) {
-    match k {
-      Key::Backspace => self.focused_window().go_back(),
-      k => {
+  pub fn process_key(&mut self, k: KeyEvent, dex: &mut Dex) {
+    match k.code {
+      KeyCode::Backspace => self.focused_window().go_back(),
+      _ => {
         let mut buf = CommandBuffer::new();
         self
           .focused_window()
