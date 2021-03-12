@@ -22,6 +22,7 @@ use crate::dex::Dex;
 use crate::ui::browser::CommandBuffer;
 use crate::ui::component::Component;
 use crate::ui::component::KeyArgs;
+use crate::ui::component::Masthead;
 use crate::ui::component::RenderArgs;
 use crate::ui::component::TitleLink;
 use crate::ui::component::WelcomeMessage;
@@ -325,59 +326,14 @@ impl Page {
       }
     }
 
-    let topbar_rect = Rect::new(rect.x, rect.y, rect.width, 1);
-    f.render_widget(
-      Topbar {
-        name: &self.url,
-        is_focused,
-        color: Color::White,
-      },
-      rect,
-    );
-
-    // Take one x at the top for the topbar.
-    let rect = Rect::new(rect.x, rect.y + 1, rect.width, rect.height - 1);
-
-    inner(&mut self.root, is_focused, dex, f, rect)
-  }
-}
-
-pub struct Topbar<'a> {
-  name: &'a str,
-  is_focused: bool,
-  color: Color,
-}
-
-impl Widget for Topbar<'_> {
-  fn render(self, area: Rect, buf: &mut Buffer) {
-    let width = area.width;
-    let rest_width = (width as usize).saturating_sub(self.name.len() - 1);
-
-    let name = if self.is_focused {
-      Span::styled(
-        format!(" <{}> ", self.name),
-        Style::reset()
-          .fg(self.color)
-          .add_modifier(Modifier::REVERSED | Modifier::BOLD),
-      )
-    } else {
-      Span::styled(
-        format!("  {}  ", self.name),
-        Style::reset()
-          .fg(self.color)
-          .add_modifier(Modifier::REVERSED),
-      )
+    let masthead = Masthead {
+      label: &self.url,
+      is_focused,
+      color: Color::White,
     };
+    let inner_rect = masthead.inner(rect);
+    f.render_widget(masthead, rect);
 
-    let spans = Spans::from(vec![
-      Span::styled("▍", Style::reset().fg(self.color)),
-      name,
-      Span::styled(
-        iter::repeat('▍').take(rest_width).collect::<String>(),
-        Style::reset().fg(self.color),
-      ),
-    ]);
-
-    buf.set_spans(area.x, area.y, &spans, area.width);
+    inner(&mut self.root, is_focused, dex, f, inner_rect)
   }
 }

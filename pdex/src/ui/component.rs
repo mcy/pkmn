@@ -1,11 +1,14 @@
 //! Leaf components.
 
+use std::iter;
+
 use pkmn::model::LanguageName;
 
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 
+use tui::buffer::Buffer;
 use tui::layout::Alignment;
 use tui::layout::Constraint;
 use tui::layout::Direction;
@@ -24,6 +27,7 @@ use tui::widgets::List;
 use tui::widgets::ListItem;
 use tui::widgets::ListState;
 use tui::widgets::Paragraph;
+use tui::widgets::Widget;
 
 use crate::dex::Dex;
 use crate::ui::browser::CommandBuffer;
@@ -164,6 +168,105 @@ impl Component for WelcomeMessage {
   }
 }
 
+pub struct DownloadProgress<E> {
+  progress: crate::download::Progress<E>,
+  color: Color,
+}
+
+impl<E> Widget for DownloadProgress<E> {
+  fn render(self, rect: Rect, buf: &mut Buffer) {
+    const MAX_WIDTH: u16 = 60;
+    let width = MAX_WIDTH.min(rect.width);
+    let center_x = (rect.x + rect.width) / 2;
+    let center_y = (rect.y + rect.height) / 2;
+    let rect = Rect::new(center_x - width / 2, center_y - 3, width, 6);
+
+    let m = Masthead {
+      label: "Downloading...",
+      is_focused: false,
+      color: self.color,
+    };
+    let inner = m.inner(rect);
+    m.render(rect, buf);
+
+    let message = match &self.progress.message {
+      Some(m) => m,
+      None => "",
+    };
+    let span = Span::styled(message, Style::default().fg(self.color));
+    buf.set_span(inner.x, inner.y + 1, &span, inner.width);
+
+    let gauge_rect = Rect::new(inner.x, inner.y + 2, inner.width, 1);
+    let mut ratio = self.progress.completed as f64 / self.progress.total as f64;
+    if ratio < 0.0 || ratio > 1.0 || ratio.is_nan() {
+      ratio = 0.0;
+    }
+    let label = format!("{}/{}", self.progress.completed, self.progress.total);
+
+    Gauge::default()
+      .gauge_style(Style::default().fg(self.color))
+      .label(label)
+      .ratio(ratio)
+      .render(gauge_rect, buf)
+  }
+}
+
+pub struct Masthead<'a> {
+  pub label: &'a str,
+  pub is_focused: bool,
+  pub color: Color,
+}
+
+impl Masthead<'_> {
+  pub fn inner(&self, rect: Rect) -> Rect {
+    Rect::new(
+      rect.x + 1,
+      rect.y + 1,
+      rect.width.saturating_sub(2),
+      rect.height.saturating_sub(2),
+    )
+  }
+}
+
+impl Widget for Masthead<'_> {
+  fn render(self, rect: Rect, buf: &mut Buffer) {
+    let width = rect.width;
+    let rest_width = (width as usize).saturating_sub(self.label.len().saturating_sub(1));
+
+    let label = if self.is_focused {
+      Span::styled(
+        format!(" <{}> ", self.label),
+        Style::reset()
+          .fg(self.color)
+          .add_modifier(Modifier::REVERSED | Modifier::BOLD),
+      )
+    } else {
+      Span::styled(
+        format!("  {}  ", self.label),
+        Style::reset()
+          .fg(self.color)
+          .add_modifier(Modifier::REVERSED),
+      )
+    };
+
+    let header = Spans::from(vec![
+      Span::styled("▍", Style::reset().fg(self.color)),
+      label,
+      Span::styled(
+        iter::repeat('▍').take(rest_width).collect::<String>(),
+        Style::reset().fg(self.color),
+      ),
+    ]);
+    let footer = Span::styled(
+      iter::repeat('▍').take(width as usize).collect::<String>(),
+      Style::reset().fg(self.color),
+    );
+
+    buf.set_spans(rect.x, rect.y, &header, rect.width);
+    buf.set_span(rect.x, rect.y + rect.height - 1, &footer, rect.width);
+  }
+}
+
 /// The pokedex component.
 #[derive(Clone, Debug)]
 pub struct Pokedex {
@@ -240,45 +343,7 @@ impl Component for Pokedex {
           .render_stateful_widget(list, args.rect, &mut self.state);
       }
       Err(progress) => {
-        let message = Text::from(format!(
-          "Downloading resources. This may take a while.\n{}",
-          progress.message.unwrap_or("".to_string())
-        ));
-
-        let mut ratio = progress.completed as f64 / progress.total as f64;
-        if ratio < 0.0 || ratio > 1.0 || ratio.is_nan() {
-          ratio = 0.0;
-        }
-        let label = format!("{}/{}", progress.completed, progress.total);
-
-        let layout = Layout::default()
-          .direction(Direction::Vertical)
-          .margin(1)
-          .constraints([
-            Constraint::Length(message.height() as _),
-            Constraint::Length(1),
-            Constraint::Min(0),
-          ])
-          .split(block.inner(args.rect));
-
-        args.output.render_widget(
-          Paragraph::new(message)
-            .style(Style::default().fg(Color::White))
-            .alignment(Alignment::Center),
-          layout[0],
-        );
-        args.output.render_widget(
-          Gauge::default()
-            .gauge_style(
-              Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::ITALIC),
-            )
-            .label(label)
-            .ratio(ratio),
-          layout[1],
-        );
-        args.output.render_widget(block, args.rect);
+        args.output.render_widget(DownloadProgress { progress, color: Color::White }, args.rect)
       }
     };
   }

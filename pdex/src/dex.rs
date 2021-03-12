@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use pkmn::api;
 use pkmn::api::Endpoint;
+use pkmn::model::Pokemon;
 use pkmn::model::Species;
 use pkmn::Api;
 
@@ -18,6 +19,7 @@ use crate::download::Download;
 pub struct Dex {
   api: Arc<Api>,
   species: Download<HashMap<String, Arc<Species>>, api::Error>,
+  pokemon: Download<HashMap<String, Arc<Pokemon>>, api::Error>,
 }
 
 impl Dex {
@@ -25,6 +27,7 @@ impl Dex {
     Self {
       api,
       species: Download::new(),
+      pokemon: Download::new(),
     }
   }
 
@@ -94,5 +97,13 @@ impl Dex {
     let api = Arc::clone(&self.api);
     Self::start_map_download(&mut self.species, api);
     &mut self.species
+  }
+
+  pub fn pokemon(
+    &mut self,
+  ) -> &mut Download<HashMap<String, Arc<Pokemon>>, api::Error> {
+    let api = Arc::clone(&self.api);
+    Self::start_map_download(&mut self.pokemon, api);
+    &mut self.pokemon
   }
 }

@@ -31,6 +31,7 @@ enum DownloadInner<T, E> {
 /// to display progress to the user.
 ///
 /// See [`Download::try_finish()`].
+#[derive(Clone, Debug)]
 pub struct Progress<E> {
   /// The latest message from the dowloader.
   pub message: Option<String>,
