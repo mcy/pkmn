@@ -36,6 +36,7 @@ use tui::widgets::Widget;
 use crate::dex::Dex;
 use crate::download::Progress;
 use crate::ui::browser::CommandBuffer;
+use crate::ui::widgets::ScrollBar;
 use crate::ui::Frame;
 
 /// Arguments fot [`Component::process_key()`].
@@ -77,7 +78,7 @@ impl Clone for Box<dyn Component> {
 pub trait Component: BoxClone + std::fmt::Debug {
   /// Processes a key-press, either mutating own state or issuing a command to
   /// the browser.
-  fn process_key(&mut self, args: KeyArgs) {}
+  fn process_key(&mut self, args: KeyArgs) { let _ = args; }
 
   /// Renders this component.
   fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>>;
@@ -114,7 +115,7 @@ impl Component for TestBox {
 #[derive(Clone, Debug)]
 pub struct Empty;
 impl Component for Empty {
-  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, _: RenderArgs) -> Result<(), Progress<api::Error>> {
     Ok(())
   }
 }
@@ -178,106 +179,6 @@ impl Component for WelcomeMessage {
   }
 }
 
-pub struct DownloadProgress<E> {
-  pub progress: Progress<E>,
-  pub color: Color,
-}
-
-impl<E> Widget for DownloadProgress<E> {
-  fn render(self, rect: Rect, buf: &mut Buffer) {
-    const MAX_WIDTH: u16 = 60;
-    let width = MAX_WIDTH.min(rect.width);
-    let center_x = (rect.x + rect.width) / 2;
-    let center_y = (rect.y + rect.height) / 2;
-    let rect = Rect::new(center_x - width / 2, center_y - 3, width, 6);
-
-    let m = Masthead {
-      label: "Downloading...",
-      is_focused: false,
-      color: self.color,
-    };
-    let inner = m.inner(rect);
-    m.render(rect, buf);
-
-    let message = match &self.progress.message {
-      Some(m) => m,
-      None => "",
-    };
-    let span = Span::styled(message, Style::default().fg(self.color));
-    buf.set_span(inner.x, inner.y + 1, &span, inner.width);
-
-    let gauge_rect = Rect::new(inner.x, inner.y + 2, inner.width, 1);
-    let mut ratio = self.progress.completed as f64 / self.progress.total as f64;
-    if ratio < 0.0 || ratio > 1.0 || ratio.is_nan() {
-      ratio = 0.0;
-    }
-    let label = format!("{}/{}", self.progress.completed, self.progress.total);
-
-    Gauge::default()
-      .gauge_style(Style::default().fg(self.color))
-      .label(label)
-      .ratio(ratio)
-      .render(gauge_rect, buf);
-  }
-}
-
-pub struct Masthead<'a> {
-  pub label: &'a str,
-  pub is_focused: bool,
-  pub color: Color,
-}
-
-impl Masthead<'_> {
-  pub fn inner(&self, rect: Rect) -> Rect {
-    Rect::new(
-      rect.x + 1,
-      rect.y + 1,
-      rect.width.saturating_sub(2),
-      rect.height.saturating_sub(2),
-    )
-  }
-}
-
-impl Widget for Masthead<'_> {
-  fn render(self, rect: Rect, buf: &mut Buffer) {
-    let width = rect.width;
-    let rest_width =
-      (width as usize).saturating_sub(self.label.len().saturating_sub(1));
-
-    let label = if self.is_focused {
-      Span::styled(
-        format!(" <{}> ", self.label),
-        Style::reset()
-          .fg(self.color)
-          .add_modifier(Modifier::REVERSED | Modifier::BOLD),
-      )
-    } else {
-      Span::styled(
-        format!("  {}  ", self.label),
-        Style::reset()
-          .fg(self.color)
-          .add_modifier(Modifier::REVERSED),
-      )
-    };
-
-    let header = Spans::from(vec![
-      Span::styled("▍", Style::reset().fg(self.color)),
-      label,
-      Span::styled(
-        iter::repeat('▍').take(rest_width).collect::<String>(),
-        Style::reset().fg(self.color),
-      ),
-    ]);
-    let footer = Span::styled(
-      iter::repeat('▍').take(width as usize).collect::<String>(),
-      Style::reset().fg(self.color),
-    );
-
-    buf.set_spans(rect.x, rect.y, &header, rect.width);
-    buf.set_span(rect.x, rect.y + rect.height - 1, &footer, rect.width);
-  }
-}
-
 pub trait Listable {
   type Item;
   fn from_dex(
@@ -318,7 +219,7 @@ where
     if let Some(items) = &self.items {
       let m = args.key.modifiers;
       let delta: isize = match args.key.code {
-        KeyCode::Up => -1, 
+        KeyCode::Up => -1,
         KeyCode::Down => 1,
         KeyCode::Char('u') if m == KeyModifiers::CONTROL => -20,
         KeyCode::Char('d') if m == KeyModifiers::CONTROL => 20,
@@ -327,14 +228,14 @@ where
           let index = self.state.selected().unwrap_or(0);
           args.commands.navigate_to(self.list.url_of(&items[index]));
           args.commands.take_key();
-          return
+          return;
         }
         _ => return,
       };
 
       let index = self.state.selected().unwrap_or(0);
       let new_idx = ((index as isize).saturating_add(delta).max(0) as usize)
-      .min(items.len().saturating_sub(1));
+        .min(items.len().saturating_sub(1));
 
       if index != new_idx {
         self.state.select(Some(new_idx));
@@ -364,53 +265,18 @@ where
     args
       .output
       .render_stateful_widget(list, args.rect, &mut self.state);
-    
-    let mut ratio = self.state.selected().unwrap_or(0) as f64 / (items.len() - 1) as f64;
+
+    let mut ratio =
+      self.state.selected().unwrap_or(0) as f64 / (items.len() - 1) as f64;
     if ratio.is_nan() {
       ratio = 0.0;
     }
-    args.output.render_widget(ScrollBar { color: Color::White, ratio }, args.rect);
+    args.output.render_widget(
+      ScrollBar::new(ratio).style(Style::default().fg(Color::White)),
+      args.rect,
+    );
 
     Ok(())
-  }
-}
-
-pub struct ScrollBar {
-  color: Color,
-  ratio: f64,
-}
-
-impl Widget for ScrollBar {
-  fn render(self, rect: Rect, buf: &mut Buffer) {
-    assert!(self.ratio >= 0.0 && self.ratio <= 1.0);
-    let height = rect.height;
-    if height == 0 {
-      return
-    }
-
-    let selected = ((height - 1) as f64 * self.ratio) as u16;
-    let x = rect.x + rect.width - 1;
-    for i in 0..height {
-      let cell = buf.get_mut(x, rect.y + i);
-      let syn = if i == selected {
-        if i == 0 {
-          "▄"
-        } else if i == height - 1 {
-          "▀"
-        } else {
-          "█"
-        }
-      } else if i == 0 {
-        "┬"
-      } else if i == height - 1 {
-        "┴"
-      } else {
-        "│"
-      };
-
-      cell.set_symbol(syn);
-      cell.set_fg(self.color);
-    }
   }
 }
 
@@ -429,10 +295,6 @@ impl Listable for Pokedex {
       .get()?
       .iter()
       .filter_map(|(_, species)| {
-        let name = species
-          .localized_names
-          .get(LanguageName::English)?;
-
         let number = species
           .pokedex_numbers
           .iter()

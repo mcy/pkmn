@@ -31,6 +31,7 @@ use tui::backend::CrosstermBackend;
 pub mod browser;
 pub mod component;
 pub mod page;
+pub mod widgets;
 
 /// The specific instantiation of [`tui::Frame`] used here.
 pub type Frame<'a> = tui::Frame<'a, CrosstermBackend<std::io::Stdout>>;

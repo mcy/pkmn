@@ -21,13 +21,13 @@ use tui::widgets::Widget;
 use crate::dex::Dex;
 use crate::ui::browser::CommandBuffer;
 use crate::ui::component::Component;
-use crate::ui::component::DownloadProgress;
 use crate::ui::component::KeyArgs;
 use crate::ui::component::Listing;
-use crate::ui::component::Masthead;
 use crate::ui::component::RenderArgs;
 use crate::ui::component::TitleLink;
 use crate::ui::component::WelcomeMessage;
+use crate::ui::widgets::Chrome;
+use crate::ui::widgets::ProgressBar;
 use crate::ui::Frame;
 
 #[derive(Clone, Debug)]
@@ -147,7 +147,9 @@ impl Page {
       "pdex://pokedex/national" => node!(Listing::new(Pokedex("national"))),
       "pdex://pokedex/kanto" => node!(Listing::new(Pokedex("kanto"))),
       "pdex://pokedex/hoenn" => node!(Listing::new(Pokedex("hoenn"))),
-      "pdex://pokedex/extended-sinnoh" => node!(Listing::new(Pokedex("extended-sinnoh"))),
+      "pdex://pokedex/extended-sinnoh" => {
+        node!(Listing::new(Pokedex("extended-sinnoh")))
+      }
       "pdex://focus-test" => node! {
         v: [
           TestBox("foo", true),
@@ -280,10 +282,9 @@ impl Page {
         }) {
           Ok(()) => {}
           Err(e) => f.render_widget(
-            DownloadProgress {
-              progress: e,
-              color: Color::White,
-            },
+            ProgressBar::new(&e)
+              .style(Style::default().fg(Color::White))
+              .gauge_style(Style::default().bg(Color::Black)),
             rect,
           ),
         },
@@ -339,13 +340,15 @@ impl Page {
       }
     }
 
-    let masthead = Masthead {
-      label: &self.url,
-      is_focused,
-      color: Color::White,
-    };
-    let inner_rect = masthead.inner(rect);
-    f.render_widget(masthead, rect);
+    let chrome = Chrome::new()
+      .title(self.url.as_str())
+      .footer(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
+      .focus_title(is_focused)
+      .style(Style::default().fg(Color::White))
+      .focused_style(Style::default().add_modifier(Modifier::BOLD))
+      .focused_delims(("<", ">"));
+    let inner_rect = chrome.inner(rect);
+    f.render_widget(chrome, rect);
 
     inner(&mut self.root, is_focused, dex, f, inner_rect)
   }
