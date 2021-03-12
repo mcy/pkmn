@@ -359,12 +359,58 @@ where
       .collect::<Vec<_>>();
 
     let list = List::new(list_items)
-      .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
-      .highlight_symbol(">>");
+      .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+      .highlight_symbol("➤ ");
     args
       .output
       .render_stateful_widget(list, args.rect, &mut self.state);
+    
+    let mut ratio = self.state.selected().unwrap_or(0) as f64 / (items.len() - 1) as f64;
+    if ratio.is_nan() {
+      ratio = 0.0;
+    }
+    args.output.render_widget(ScrollBar { color: Color::White, ratio }, args.rect);
+
     Ok(())
+  }
+}
+
+pub struct ScrollBar {
+  color: Color,
+  ratio: f64,
+}
+
+impl Widget for ScrollBar {
+  fn render(self, rect: Rect, buf: &mut Buffer) {
+    assert!(self.ratio >= 0.0 && self.ratio <= 1.0);
+    let height = rect.height;
+    if height == 0 {
+      return
+    }
+
+    let selected = ((height - 1) as f64 * self.ratio) as u16;
+    let x = rect.x + rect.width - 1;
+    for i in 0..height {
+      let cell = buf.get_mut(x, rect.y + i);
+      let syn = if i == selected {
+        if i == 0 {
+          "▄"
+        } else if i == height - 1 {
+          "▀"
+        } else {
+          "█"
+        }
+      } else if i == 0 {
+        "┬"
+      } else if i == height - 1 {
+        "┴"
+      } else {
+        "│"
+      };
+
+      cell.set_symbol(syn);
+      cell.set_fg(self.color);
+    }
   }
 }
 
