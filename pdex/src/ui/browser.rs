@@ -38,20 +38,18 @@ impl Browser {
   }
 
   pub fn move_focus(&mut self, delta: isize) {
-    self.focused_idx = ((self.focused_idx as isize)
-      .saturating_add(delta)
-      .max(0) as usize)
-      .min(self.windows.len() - 1) 
+    self.focused_idx = ((self.focused_idx as isize).saturating_add(delta).max(0)
+      as usize)
+      .min(self.windows.len() - 1)
   }
 
   pub fn move_focused_window(&mut self, delta: isize) {
     if delta == 0 {
       return;
     }
-    let new_idx = ((self.focused_idx as isize)
-      .saturating_add(delta)
-      .max(0) as usize)
-      .min(self.windows.len() - 1) ;
+    let new_idx = ((self.focused_idx as isize).saturating_add(delta).max(0)
+      as usize)
+      .min(self.windows.len() - 1);
     self.windows.swap(self.focused_idx, new_idx);
     self.focused_idx = new_idx;
   }
@@ -61,13 +59,22 @@ impl Browser {
   /// Some keys may be intercepted by the browser; for example, backspace will
   /// go back one step in history.
   pub fn process_key(&mut self, k: KeyEvent, dex: &mut Dex) {
+    // Keys that override normal event processing.
+    let m = k.modifiers;
+    match k.code {
+      // Move focus between windows, without notifying the page.
+      KeyCode::Left if m == KeyModifiers::SHIFT => self.move_focus(-1),
+      KeyCode::Right if m == KeyModifiers::SHIFT => self.move_focus(1),
+      _ => {}
+    }
+
     let mut buf = CommandBuffer::new();
     self
       .focused_window()
       .current_page()
       .process_key(k, dex, &mut buf);
 
-    for c in buf.commands {
+    for c in &buf.commands {
       match c {
         Command::Navigate(url) => {
           self.focused_window().navigate_to(Page::from_url(&url))
@@ -75,24 +82,27 @@ impl Browser {
       }
     }
 
-    if !buf.has_released_key {
+    if !buf.has_key() {
       return;
     }
 
     // Browser-level key controls.
-    let m = k.modifiers;
     match k.code {
       // History control.
-      KeyCode::Left if m == KeyModifiers::CONTROL => self.focused_window().shift_history(-1),
-      KeyCode::Right if m == KeyModifiers::CONTROL => self.focused_window().shift_history(1),
-
-      // Move focus between windows.
-      KeyCode::Left if m == KeyModifiers::ALT => self.move_focus(-1),
-      KeyCode::Right if m == KeyModifiers::ALT => self.move_focus(1),
+      KeyCode::PageUp => self.focused_window().shift_history(-1),
+      KeyCode::PageDown => self.focused_window().shift_history(1),
 
       // Move windows.
-      KeyCode::Left if m == KeyModifiers::SHIFT => self.move_focused_window(-1),
-      KeyCode::Right if m == KeyModifiers::SHIFT => self.move_focused_window(1),
+      KeyCode::Left if m == KeyModifiers::CONTROL => {
+        self.move_focused_window(-1)
+      }
+      KeyCode::Right if m == KeyModifiers::CONTROL => {
+        self.move_focused_window(1)
+      }
+
+      // Move focus between windows. Note that modifiers aren't chekced.
+      KeyCode::Left => self.move_focus(-1),
+      KeyCode::Right => self.move_focus(1),
 
       // Spawn new window after the current one.
       KeyCode::Char('n') => {
@@ -176,10 +186,9 @@ impl Window {
   /// Moves the current page pointer forwards or backwards the given number of
   /// pages in the history stack.
   pub fn shift_history(&mut self, delta: isize) {
-    self.current_page = ((self.current_page as isize)
-      .saturating_add(delta)
-      .max(0) as usize)
-      .min(self.history.len() - 1) 
+    self.current_page =
+      ((self.current_page as isize).saturating_add(delta).max(0) as usize)
+        .min(self.history.len() - 1)
   }
 }
 
@@ -188,7 +197,7 @@ impl Window {
 /// Buffered commands will not take effect until key-press processing completes.
 pub struct CommandBuffer {
   commands: Vec<Command>,
-  has_released_key: bool,
+  has_key: bool,
 }
 
 enum Command {
@@ -200,7 +209,7 @@ impl CommandBuffer {
   fn new() -> Self {
     Self {
       commands: Vec::new(),
-      has_released_key: false,
+      has_key: true,
     }
   }
 
@@ -211,7 +220,15 @@ impl CommandBuffer {
 
   /// Indicates to the browser that the key being processed was not consumed,
   /// and that it should process it at global scope instead.
-  pub fn release_key(&mut self) {
-    self.has_released_key = true
+  pub fn take_key(&mut self) {
+    self.has_key = false
+  }
+
+  /// Returns whether a callee has already taken the key associated with this
+  /// key-press processing operation.
+  ///
+  /// Returns `true` if the key is as-yet unprocessed.
+  pub fn has_key(&self) -> bool {
+    self.has_key
   }
 }

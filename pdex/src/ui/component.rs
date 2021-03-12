@@ -57,18 +57,51 @@ where
   }
 }
 
+impl Clone for Box<dyn Component> {
+  fn clone(&self) -> Self {
+    self.box_clone()
+  }
+}
+
 /// A leaf component in a page.
-pub trait Component: BoxClone {
+pub trait Component: BoxClone + std::fmt::Debug {
   /// Processes a key-press, either mutating own state or issuing a command to
   /// the browser.
-  fn process_key(&mut self, args: KeyArgs);
+  fn process_key(&mut self, args: KeyArgs) {}
 
   /// Renders this component.
   fn render(&mut self, args: RenderArgs);
+
+  /// Returns whether this component should be given focus at all.
+  fn wants_focus(&self) -> bool {
+    false
+  }
+}
+
+#[derive(Clone, Debug)]
+pub struct TestBox(pub &'static str, pub bool);
+
+impl Component for TestBox {
+  fn render(&mut self, args: RenderArgs) {
+    let block = Block::default().borders(Borders::ALL).title(self.0).style(
+      Style::default().fg(if !self.1 {
+        Color::Blue
+      } else if args.is_focused {
+        Color::Red
+      } else {
+        Color::White
+      }),
+    );
+    args.output.render_widget(block, args.rect);
+  }
+
+  fn wants_focus(&self) -> bool {
+    self.1
+  }
 }
 
 /// The main menu component.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MainMenu {
   urls: Vec<String>,
   state: ListState,
@@ -79,9 +112,7 @@ impl MainMenu {
     Self {
       urls: vec![
         "pdex://pokedex".to_string(),
-        "pdex://itemdex".to_string(),
-        "pdex://movedex".to_string(),
-        "pdex://abilitydex".to_string(),
+        "pdex://focus-test".to_string(),
       ],
       state: zero_list_state(),
     }
@@ -91,20 +122,26 @@ impl MainMenu {
 impl Component for MainMenu {
   fn process_key(&mut self, args: KeyArgs) {
     match args.key.code {
-      KeyCode::Up => self
-        .state
-        .select(self.state.selected().map(|x| x.saturating_sub(1))),
-      KeyCode::Down => self.state.select(
+      KeyCode::Up => {
         self
           .state
-          .selected()
-          .map(|x| x.saturating_add(1).min(self.urls.len().saturating_sub(1))),
-      ),
+          .select(self.state.selected().map(|x| x.saturating_sub(1)));
+        args.commands.take_key()
+      }
+      KeyCode::Down => {
+        self.state.select(
+          self.state.selected().map(|x| {
+            x.saturating_add(1).min(self.urls.len().saturating_sub(1))
+          }),
+        );
+        args.commands.take_key()
+      }
       KeyCode::Enter => {
         let url = self.urls[self.state.selected().unwrap()].clone();
+        args.commands.take_key();
         args.commands.navigate_to(url)
       }
-      _ => args.commands.release_key(),
+      _ => {}
     }
   }
 
@@ -153,7 +190,7 @@ impl Component for MainMenu {
 }
 
 /// The pokedex component.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Pokedex {
   state: ListState,
 }
@@ -170,16 +207,21 @@ impl Component for Pokedex {
   fn process_key(&mut self, args: KeyArgs) {
     if let Ok(species) = args.dex.species().try_finish() {
       match args.key.code {
-        KeyCode::Up => self
-          .state
-          .select(self.state.selected().map(|x| x.saturating_sub(1))),
-        KeyCode::Down => self.state.select(
+        KeyCode::Up => {
           self
             .state
-            .selected()
-            .map(|x| x.saturating_add(1).min(species.len().saturating_sub(1))),
-        ),
-        _ => args.commands.release_key(),
+            .select(self.state.selected().map(|x| x.saturating_sub(1)));
+          args.commands.take_key()
+        }
+        KeyCode::Down => {
+          self.state.select(
+            self.state.selected().map(|x| {
+              x.saturating_add(1).min(species.len().saturating_sub(1))
+            }),
+          );
+          args.commands.take_key()
+        }
+        _ => {}
       }
     }
   }
