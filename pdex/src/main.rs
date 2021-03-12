@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::thread;
 
 use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
+
 use crossterm::event::KeyModifiers;
 use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
@@ -25,9 +25,9 @@ mod ui;
 
 fn main() -> Result<(), crossterm::ErrorKind> {
   crossterm::terminal::enable_raw_mode()?;
-  crossterm::execute!(io::stdout(), EnterAlternateScreen);
+  crossterm::execute!(io::stdout(), EnterAlternateScreen)?;
   let res = real_main();
-  crossterm::execute!(io::stdout(), LeaveAlternateScreen);
+  crossterm::execute!(io::stdout(), LeaveAlternateScreen)?;
   crossterm::terminal::disable_raw_mode()?;
 
   res

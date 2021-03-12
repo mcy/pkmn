@@ -1,7 +1,5 @@
 //! The root UI type.
 
-use std::iter;
-
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;

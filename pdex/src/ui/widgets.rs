@@ -3,30 +3,16 @@
 use std::iter;
 
 use tui::buffer::Buffer;
-use tui::layout::Alignment;
-use tui::layout::Constraint;
-use tui::layout::Direction;
-use tui::layout::Layout;
 use tui::layout::Rect;
-use tui::style::Color;
 use tui::style::Modifier;
 use tui::style::Style;
 use tui::symbols;
 use tui::text::Span;
 use tui::text::Spans;
-use tui::text::Text;
-use tui::widgets::Borders;
 use tui::widgets::Gauge;
-use tui::widgets::List;
-use tui::widgets::ListItem;
-use tui::widgets::ListState;
-use tui::widgets::Paragraph;
 use tui::widgets::Widget;
 
-use crate::dex::Dex;
 use crate::download::Progress;
-use crate::ui::browser::CommandBuffer;
-use crate::ui::Frame;
 
 /// A progress bar for a download task.
 ///
@@ -280,7 +266,7 @@ impl ScrollBar {
 
 impl Widget for ScrollBar {
   fn render(self, rect: Rect, buf: &mut Buffer) {
-    let ratio = if self.ratio < 0.0 || self.ratio.is_nan() {
+    let _ratio = if self.ratio < 0.0 || self.ratio.is_nan() {
       0.0
     } else if self.ratio > 1.0 {
       1.0

@@ -1,12 +1,9 @@
 //! Browseable pages.
 
-use std::iter;
-
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 
-use tui::buffer::Buffer;
 use tui::layout::Constraint;
 use tui::layout::Direction;
 use tui::layout::Layout;
@@ -14,18 +11,14 @@ use tui::layout::Rect;
 use tui::style::Color;
 use tui::style::Modifier;
 use tui::style::Style;
-use tui::text::Span;
-use tui::text::Spans;
-use tui::widgets::Widget;
 
 use crate::dex::Dex;
 use crate::ui::browser::CommandBuffer;
 use crate::ui::component::Component;
 use crate::ui::component::KeyArgs;
-use crate::ui::component::Listing;
+
 use crate::ui::component::RenderArgs;
-use crate::ui::component::TitleLink;
-use crate::ui::component::WelcomeMessage;
+
 use crate::ui::widgets::Chrome;
 use crate::ui::widgets::ProgressBar;
 use crate::ui::Frame;
