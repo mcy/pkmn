@@ -14,28 +14,13 @@ use pkmn::model::Species;
 use pkmn::Api;
 
 use crate::download::Download;
+use crate::download::Progress;
 
-/// The "Dex", which contains asynchrnously-loaded listings from PokeAPI.
-pub struct Dex {
-  api: Arc<Api>,
-  species: Download<HashMap<String, Arc<Species>>, api::Error>,
-  pokemon: Download<HashMap<String, Arc<Pokemon>>, api::Error>,
-}
-
-impl Dex {
-  pub fn new(api: Arc<Api>) -> Self {
-    Self {
-      api,
-      species: Download::new(),
-      pokemon: Download::new(),
-    }
-  }
-
-  fn start_map_download<T: Endpoint>(
-    download: &mut Download<HashMap<String, Arc<T>>, api::Error>,
-    api: Arc<Api>,
-  ) {
-    download.start(move |n| {
+pub struct ResourceMap<T>(Arc<Api>, Download<HashMap<String, Arc<T>>, api::Error>);
+impl<T: Endpoint> ResourceMap<T> {
+  pub fn get(&mut self) -> Result<&HashMap<String, Arc<T>>, Progress<api::Error>> {
+    let api = Arc::clone(&self.0);
+     self.1.start(move |n| {
       let mut list = api.listing_of::<T>(64);
       let mut result = match list.advance() {
         Ok(x) => x.unwrap(),
@@ -89,21 +74,22 @@ impl Dex {
       }
       map
     });
-  }
 
-  pub fn species(
-    &mut self,
-  ) -> &mut Download<HashMap<String, Arc<Species>>, api::Error> {
-    let api = Arc::clone(&self.api);
-    Self::start_map_download(&mut self.species, api);
-    &mut self.species
+    self.1.try_finish()
   }
+}
 
-  pub fn pokemon(
-    &mut self,
-  ) -> &mut Download<HashMap<String, Arc<Pokemon>>, api::Error> {
-    let api = Arc::clone(&self.api);
-    Self::start_map_download(&mut self.pokemon, api);
-    &mut self.pokemon
+/// The "Dex", which contains asynchrnously-loaded listings from PokeAPI.
+pub struct Dex {
+  pub species: ResourceMap<Species>,
+  pub pokemon: ResourceMap<Pokemon>,
+}
+
+impl Dex {
+  pub fn new(api: Arc<Api>) -> Self {
+    Self {
+      species: ResourceMap(Arc::clone(&api), Download::new()),
+      pokemon: ResourceMap(Arc::clone(&api), Download::new()),
+    }
   }
 }

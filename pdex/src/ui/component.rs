@@ -2,6 +2,7 @@
 
 use std::iter;
 
+use pkmn::api;
 use pkmn::model::LanguageName;
 
 use crossterm::event::KeyCode;
@@ -30,6 +31,7 @@ use tui::widgets::Paragraph;
 use tui::widgets::Widget;
 
 use crate::dex::Dex;
+use crate::download::Progress;
 use crate::ui::browser::CommandBuffer;
 use crate::ui::Frame;
 
@@ -75,7 +77,7 @@ pub trait Component: BoxClone + std::fmt::Debug {
   fn process_key(&mut self, args: KeyArgs) {}
 
   /// Renders this component.
-  fn render(&mut self, args: RenderArgs);
+  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>>;
 
   /// Returns whether this component should be given focus at all.
   fn wants_focus(&self) -> bool {
@@ -87,7 +89,7 @@ pub trait Component: BoxClone + std::fmt::Debug {
 pub struct TestBox(pub &'static str, pub bool);
 
 impl Component for TestBox {
-  fn render(&mut self, args: RenderArgs) {
+  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
     let block = Block::default().borders(Borders::ALL).title(self.0).style(
       Style::default().fg(if !self.1 {
         Color::Blue
@@ -98,6 +100,7 @@ impl Component for TestBox {
       }),
     );
     args.output.render_widget(block, args.rect);
+    Ok(())
   }
 
   fn wants_focus(&self) -> bool {
@@ -108,7 +111,9 @@ impl Component for TestBox {
 #[derive(Clone, Debug)]
 pub struct Empty;
 impl Component for Empty {
-  fn render(&mut self, args: RenderArgs) {}
+  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
+    Ok(())
+  }
 }
 
 #[derive(Clone, Debug)]
@@ -141,7 +146,7 @@ impl Component for TitleLink {
     }
   }
 
-  fn render(&mut self, args: RenderArgs) {
+  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
     let text = if args.is_focused {
       Span::styled(
         format!(">{}<", self.label),
@@ -152,6 +157,7 @@ impl Component for TitleLink {
     };
     let par = Paragraph::new(text).alignment(Alignment::Center);
     args.output.render_widget(par, args.rect);
+    Ok(())
   }
 }
 
@@ -159,18 +165,19 @@ impl Component for TitleLink {
 #[derive(Clone, Debug)]
 pub struct WelcomeMessage;
 impl Component for WelcomeMessage {
-  fn render(&mut self, args: RenderArgs) {
+  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
     let welcome = Span::raw(format!("pdex v{}", env!("CARGO_PKG_VERSION")));
     args.output.render_widget(
       Paragraph::new(welcome).alignment(Alignment::Center),
       args.rect,
     );
+    Ok(())
   }
 }
 
 pub struct DownloadProgress<E> {
-  progress: crate::download::Progress<E>,
-  color: Color,
+  pub progress: Progress<E>,
+  pub color: Color,
 }
 
 impl<E> Widget for DownloadProgress<E> {
@@ -207,7 +214,7 @@ impl<E> Widget for DownloadProgress<E> {
       .gauge_style(Style::default().fg(self.color))
       .label(label)
       .ratio(ratio)
-      .render(gauge_rect, buf)
+      .render(gauge_rect, buf);
   }
 }
 
@@ -231,7 +238,8 @@ impl Masthead<'_> {
 impl Widget for Masthead<'_> {
   fn render(self, rect: Rect, buf: &mut Buffer) {
     let width = rect.width;
-    let rest_width = (width as usize).saturating_sub(self.label.len().saturating_sub(1));
+    let rest_width =
+      (width as usize).saturating_sub(self.label.len().saturating_sub(1));
 
     let label = if self.is_focused {
       Span::styled(
@@ -283,7 +291,7 @@ impl Pokedex {
 
 impl Component for Pokedex {
   fn process_key(&mut self, args: KeyArgs) {
-    if let Ok(species) = args.dex.species().try_finish() {
+    if let Ok(species) = args.dex.species.get() {
       match args.key.code {
         KeyCode::Up => {
           self
@@ -304,48 +312,41 @@ impl Component for Pokedex {
     }
   }
 
-  fn render(&mut self, args: RenderArgs) {
-    let block = Block::default().borders(Borders::ALL).title("NatDex");
-    match args.dex.species().try_finish() {
-      Ok(species) => {
-        let mut species = species
+  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
+    let species = args.dex.species.get()?;
+    let pokemon = args.dex.pokemon.get()?;
+
+    let mut species = species
+      .iter()
+      .map(|(_, species)| {
+        let name = species
+          .localized_names
+          .get(LanguageName::English)
+          .unwrap_or("???");
+
+        let number = species
+          .pokedex_numbers
           .iter()
-          .map(|(_, species)| {
-            let name = species
-              .localized_names
-              .get(LanguageName::English)
-              .unwrap_or("???");
+          .find(|n| n.pokedex.name() == Some("national"))
+          .unwrap()
+          .number;
+        (number, name)
+      })
+      .collect::<Vec<_>>();
+    species.sort_by_key(|&(number, _)| number);
 
-            let number = species
-              .pokedex_numbers
-              .iter()
-              .find(|n| n.pokedex.name() == Some("national"))
-              .unwrap()
-              .number;
-            (number, name)
-          })
-          .collect::<Vec<_>>();
-        species.sort_by_key(|&(number, _)| number);
+    let items = species
+      .into_iter()
+      .map(|(number, name)| ListItem::new(format!("#{:03} {}", number, name)))
+      .collect::<Vec<_>>();
 
-        let items = species
-          .into_iter()
-          .map(|(number, name)| {
-            ListItem::new(format!("#{:03} {}", number, name))
-          })
-          .collect::<Vec<_>>();
-
-        let list = List::new(items)
-          .block(block)
-          .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
-          .highlight_symbol(">>");
-        args
-          .output
-          .render_stateful_widget(list, args.rect, &mut self.state);
-      }
-      Err(progress) => {
-        args.output.render_widget(DownloadProgress { progress, color: Color::White }, args.rect)
-      }
-    };
+    let list = List::new(items)
+      .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
+      .highlight_symbol(">>");
+    args
+      .output
+      .render_stateful_widget(list, args.rect, &mut self.state);
+    Ok(())
   }
 }
 

@@ -21,6 +21,7 @@ use tui::widgets::Widget;
 use crate::dex::Dex;
 use crate::ui::browser::CommandBuffer;
 use crate::ui::component::Component;
+use crate::ui::component::DownloadProgress;
 use crate::ui::component::KeyArgs;
 use crate::ui::component::Masthead;
 use crate::ui::component::RenderArgs;
@@ -268,12 +269,21 @@ impl Page {
       rect: Rect,
     ) {
       match node {
-        Node::Leaf { component, .. } => component.render(RenderArgs {
+        Node::Leaf { component, .. } => match component.render(RenderArgs {
           is_focused,
           dex,
           rect,
           output: f,
-        }),
+        }) {
+          Ok(()) => {}
+          Err(e) => f.render_widget(
+            DownloadProgress {
+              progress: e,
+              color: Color::White,
+            },
+            rect,
+          ),
+        },
         Node::Stack {
           nodes,
           direction,
