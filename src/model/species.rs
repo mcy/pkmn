@@ -1,10 +1,12 @@
 //! Pokemon species, the root structures for Pokemon information.
 
+use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::api::Blob;
 use crate::api::Endpoint;
 use crate::model::ability::Ability;
 use crate::model::evolution::Family;
@@ -192,10 +194,42 @@ pub struct BaseStat {
   pub stat: Resource<Stat>,
 }
 
-/// A [`Pokemon`]'s default spirtes.
+/// A [`Pokemon`]'s sprite table.
+///
+/// The layout of this struct is not final and subject to change!!
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sprites {
-  // TODO
+  /// Default sprites for this Pokemon.
+  #[serde(flatten)]
+  pub defaults: SpriteSet,
+  /// Sprites in non-game contexts, such as official art.
+  pub other: HashMap<String, SpriteSet>,
+  /// Sprites in various versions sorted by generation.
+  pub versions: HashMap<String, HashMap<String, SpriteSet>>,
+}
+
+/// A [`Pokemon`]'s spirte table for a particular game.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SpriteSet {
+  /// The front-facing default (including male) sprite.
+  ///
+  /// In general, this specific entry is guaranteed to be present.
+  pub front_default: Blob,
+  /// The front-facing female sprite.
+  pub front_female: Option<Blob>,
+  /// The front-facing shiny (including male) sprite.
+  pub front_shiny: Option<Blob>,
+  /// The front-facing shiny female sprite.
+  pub front_shiny_female: Option<Blob>,
+
+  /// The back-facing default (including male) sprite.
+  pub back_default: Option<Blob>,
+  /// The back-facing female sprite.
+  pub back_female: Option<Blob>,
+  /// The back-facing shiny (including male) sprite.
+  pub back_shiny: Option<Blob>,
+  /// The back-facing shiny female sprite.
+  pub back_shiny_female: Option<Blob>,
 }
 
 impl Endpoint for Pokemon {
