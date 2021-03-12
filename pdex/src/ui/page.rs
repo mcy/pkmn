@@ -216,18 +216,18 @@ impl Page {
       }
       "pdex://focus-test" => node! {
         v: [
-          TestBox("foo", true),
-          TestBox("bar", true),
+          TestBox(true),
+          TestBox(true),
           h: [
-            TestBox("bang", false),
+            TestBox(false),
             v: [
-              TestBox("!", false),
-              TestBox("?", true),
-              TestBox("!?", true),
+              TestBox(false),
+              TestBox(true),
+              TestBox(true),
             ],
-            TestBox("bonk", true),
+            TestBox(true),
           ],
-          TestBox("baz", true),
+          TestBox(true),
         ],
       },
       _ => node!(Empty),

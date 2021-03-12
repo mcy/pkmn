@@ -21,8 +21,6 @@ use tui::style::Style;
 use tui::text::Span;
 use tui::text::Spans;
 use tui::widgets;
-use tui::widgets::Block;
-use tui::widgets::Borders;
 use tui::widgets::List;
 use tui::widgets::ListItem;
 use tui::widgets::ListState;
@@ -87,25 +85,37 @@ pub trait Component: BoxClone + std::fmt::Debug {
 }
 
 #[derive(Clone, Debug)]
-pub struct TestBox(pub &'static str, pub bool);
+pub struct TestBox(pub bool);
 
 impl Component for TestBox {
   fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
-    let block = Block::default().borders(Borders::ALL).title(self.0).style(
-      Style::default().fg(if !self.1 {
-        Color::Blue
-      } else if args.is_focused {
-        Color::Red
-      } else {
-        Color::White
-      }),
-    );
-    block.render(args.rect, args.output);
+    for dx in 1..args.rect.width.saturating_sub(1) {
+      for dy in 1..args.rect.height.saturating_sub(1) {
+        let x = args.rect.x + dx;
+        let y = args.rect.y + dy;
+        if (x + y) % 2 != 0 {
+          continue;
+        }
+
+        let color = if !self.0 {
+          Color::Blue
+        } else if args.is_focused {
+          Color::Red
+        } else {
+          Color::White
+        };
+
+        let cell = args.output.get_mut(x, y);
+        cell.set_char('╱');
+        cell.set_fg(color);
+      }
+    }
+
     Ok(())
   }
 
   fn wants_focus(&self) -> bool {
-    self.1
+    self.0
   }
 }
 
