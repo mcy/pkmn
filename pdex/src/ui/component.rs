@@ -14,6 +14,7 @@ use tui::layout::Rect;
 use tui::style::Color;
 use tui::style::Modifier;
 use tui::style::Style;
+use tui::text::Span;
 use tui::text::Spans;
 use tui::text::Text;
 use tui::widgets::Block;
@@ -100,91 +101,65 @@ impl Component for TestBox {
   }
 }
 
-/// The main menu component.
 #[derive(Clone, Debug)]
-pub struct MainMenu {
-  urls: Vec<String>,
-  state: ListState,
+pub struct Empty;
+impl Component for Empty {
+  fn render(&mut self, args: RenderArgs) {}
 }
 
-impl MainMenu {
-  pub fn new() -> Self {
+#[derive(Clone, Debug)]
+pub struct TitleLink {
+  url: String,
+  label: String, // TODO: Localize.
+}
+
+impl TitleLink {
+  pub fn new(url: impl ToString, label: impl ToString) -> Self {
     Self {
-      urls: vec![
-        "pdex://pokedex".to_string(),
-        "pdex://focus-test".to_string(),
-      ],
-      state: zero_list_state(),
+      url: url.to_string(),
+      label: label.to_string(),
     }
   }
 }
 
-impl Component for MainMenu {
+impl Component for TitleLink {
+  fn wants_focus(&self) -> bool {
+    true
+  }
+
   fn process_key(&mut self, args: KeyArgs) {
     match args.key.code {
-      KeyCode::Up => {
-        self
-          .state
-          .select(self.state.selected().map(|x| x.saturating_sub(1)));
-        args.commands.take_key()
-      }
-      KeyCode::Down => {
-        self.state.select(
-          self.state.selected().map(|x| {
-            x.saturating_add(1).min(self.urls.len().saturating_sub(1))
-          }),
-        );
-        args.commands.take_key()
-      }
       KeyCode::Enter => {
-        let url = self.urls[self.state.selected().unwrap()].clone();
         args.commands.take_key();
-        args.commands.navigate_to(url)
+        args.commands.navigate_to(self.url.clone());
       }
       _ => {}
     }
   }
 
   fn render(&mut self, args: RenderArgs) {
-    let welcome = Text::from(vec![Spans::from(format!(
-      "pdex v{}",
-      env!("CARGO_PKG_VERSION")
-    ))]);
+    let text = if args.is_focused {
+      Span::styled(
+        format!(">{}<", self.label),
+        Style::default().add_modifier(Modifier::BOLD),
+      )
+    } else {
+      Span::styled(format!("{}", self.label), Style::default())
+    };
+    let par = Paragraph::new(text).alignment(Alignment::Center);
+    args.output.render_widget(par, args.rect);
+  }
+}
 
-    let items = self
-      .urls
-      .iter()
-      .map(|url| ListItem::new(url.as_str()))
-      .collect::<Vec<_>>();
-
-    let rect = args.rect;
-    let max_x = 30.min(rect.width);
-    let max_y = 20.min(rect.height);
-    let margin_x = rect.width.saturating_sub(max_x) / 2;
-    let margin_y = rect.height.saturating_sub(max_y) / 2;
-
-    let rect = Rect::new(rect.x + margin_x, rect.y + margin_y, max_x, max_y);
-
-    let layout = Layout::default()
-      .direction(Direction::Vertical)
-      .margin(2)
-      .constraints([
-        Constraint::Length(welcome.height() as u16),
-        Constraint::Length(self.urls.len() as u16 + 2),
-        Constraint::Min(0),
-      ])
-      .split(rect);
+/// The main menu component.
+#[derive(Clone, Debug)]
+pub struct WelcomeMessage;
+impl Component for WelcomeMessage {
+  fn render(&mut self, args: RenderArgs) {
+    let welcome = Span::raw(format!("pdex v{}", env!("CARGO_PKG_VERSION")));
     args.output.render_widget(
       Paragraph::new(welcome).alignment(Alignment::Center),
-      layout[0],
-    );
-
-    args.output.render_stateful_widget(
-      List::new(items)
-        .block(Block::default().borders(Borders::ALL))
-        .highlight_symbol(">>"),
-      layout[1],
-      &mut self.state,
+      args.rect,
     );
   }
 }

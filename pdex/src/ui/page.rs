@@ -23,7 +23,8 @@ use crate::ui::browser::CommandBuffer;
 use crate::ui::component::Component;
 use crate::ui::component::KeyArgs;
 use crate::ui::component::RenderArgs;
-use crate::ui::component::TestBox;
+use crate::ui::component::TitleLink;
+use crate::ui::component::WelcomeMessage;
 use crate::ui::Frame;
 
 #[derive(Clone, Debug)]
@@ -68,6 +69,19 @@ macro_rules! __node {
     });
     $(__node!(@$nodes $($rest)*);)?
   };
+  (@$nodes:ident v($constraint:expr): [$($args:tt)*] $(, $($rest:tt)*)?) => {
+    $nodes.push({
+      let mut nodes = Vec::new();
+      __node!(@nodes $($args)*);
+      crate::ui::page::Node::Stack {
+        direction: tui::layout::Direction::Vertical,
+        size_constraint: Some($constraint),
+        focus_idx: None,
+        nodes
+      }
+    });
+    $(__node!(@$nodes $($rest)*);)?
+  };
   (@$nodes:ident h: [$($args:tt)*] $(, $($rest:tt)*)?) => {
     $nodes.push({
       let mut nodes = Vec::new();
@@ -78,6 +92,26 @@ macro_rules! __node {
         focus_idx: None,
         nodes
       }
+    });
+    $(__node!(@$nodes $($rest)*);)?
+  };
+  (@$nodes:ident h($constraint:expr): [$($args:tt)*] $(, $($rest:tt)*)?) => {
+    $nodes.push({
+      let mut nodes = Vec::new();
+      __node!(@nodes $($args)*);
+      crate::ui::page::Node::Stack {
+        direction: tui::layout::Direction::Horizontal,
+        size_constraint: Some($constraint),
+        focus_idx: None,
+        nodes
+      }
+    });
+    $(__node!(@$nodes $($rest)*);)?
+  };
+  (@$nodes:ident ($constraint:expr): $expr:expr $(, $($rest:tt)*)?) => {
+    $nodes.push(crate::ui::page::Node::Leaf {
+      size_constraint: Some($constraint),
+      component: Box::new($expr),
     });
     $(__node!(@$nodes $($rest)*);)?
   };
@@ -95,6 +129,22 @@ impl Page {
   pub fn from_url(url: &str) -> Page {
     use crate::ui::component::*;
     match url {
+      "pdex://main-menu" => Page {
+        root: node! {
+          v: [
+            (Constraint::Percentage(30)): Empty,
+            (Constraint::Length(1)): WelcomeMessage,
+            (Constraint::Length(1)): Empty,
+            (Constraint::Length(1)): TitleLink::new("pdex://pokedex", "Pokedex"),
+            (Constraint::Length(1)): TitleLink::new("pdex://focus-test", "Focus Test"),
+          ]
+        },
+        url: url.to_string(),
+      },
+      "pdex://pokedex" => Page {
+        root: node!(Pokedex::new()),
+        url: url.to_string(),
+      },
       "pdex://focus-test" => Page {
         root: node! {
           v: [
@@ -112,14 +162,6 @@ impl Page {
             TestBox("baz", true),
           ],
         },
-        url: url.to_string(),
-      },
-      "pdex://main-menu" => Page {
-        root: node!(MainMenu::new()),
-        url: url.to_string(),
-      },
-      "pdex://pokedex" => Page {
-        root: node!(Pokedex::new()), 
         url: url.to_string(),
       },
       _ => todo!(),
@@ -241,8 +283,14 @@ impl Page {
           let len = nodes.len();
           for node in &mut *nodes {
             constraints.push(match node {
-              Node::Stack { size_constraint: Some(c), .. } => *c,
-              Node::Leaf { size_constraint: Some(c), .. } => *c,
+              Node::Stack {
+                size_constraint: Some(c),
+                ..
+              } => *c,
+              Node::Leaf {
+                size_constraint: Some(c),
+                ..
+              } => *c,
               _ => Constraint::Ratio(1, len as u32),
             });
           }
