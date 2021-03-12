@@ -12,6 +12,7 @@ use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 
+use tui::buffer::Buffer;
 use tui::layout::Alignment;
 use tui::layout::Rect;
 use tui::style::Color;
@@ -19,18 +20,19 @@ use tui::style::Modifier;
 use tui::style::Style;
 use tui::text::Span;
 use tui::text::Spans;
+use tui::widgets;
 use tui::widgets::Block;
 use tui::widgets::Borders;
 use tui::widgets::List;
 use tui::widgets::ListItem;
 use tui::widgets::ListState;
 use tui::widgets::Paragraph;
+use tui::widgets::Widget as _;
 
 use crate::dex::Dex;
 use crate::download::Progress;
 use crate::ui::browser::CommandBuffer;
 use crate::ui::widgets::ScrollBar;
-use crate::ui::Frame;
 
 /// Arguments fot [`Component::process_key()`].
 pub struct KeyArgs<'browser> {
@@ -40,11 +42,11 @@ pub struct KeyArgs<'browser> {
 }
 
 /// Arguments fot [`Component::render()`].
-pub struct RenderArgs<'browser, 'term> {
+pub struct RenderArgs<'browser> {
   pub is_focused: bool,
   pub dex: &'browser mut Dex,
   pub rect: Rect,
-  pub output: &'browser mut Frame<'term>,
+  pub output: &'browser mut Buffer,
 }
 
 #[doc(hidden)]
@@ -98,7 +100,7 @@ impl Component for TestBox {
         Color::White
       }),
     );
-    args.output.render_widget(block, args.rect);
+    block.render(args.rect, args.output);
     Ok(())
   }
 
@@ -155,7 +157,7 @@ impl Component for TitleLink {
       Span::styled(format!("{}", self.label), Style::default())
     };
     let par = Paragraph::new(text).alignment(Alignment::Center);
-    args.output.render_widget(par, args.rect);
+    par.render(args.rect, args.output);
     Ok(())
   }
 }
@@ -166,10 +168,9 @@ pub struct WelcomeMessage;
 impl Component for WelcomeMessage {
   fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
     let welcome = Span::raw(format!("pdex v{}", env!("CARGO_PKG_VERSION")));
-    args.output.render_widget(
-      Paragraph::new(welcome).alignment(Alignment::Center),
-      args.rect,
-    );
+    Paragraph::new(welcome)
+      .alignment(Alignment::Center)
+      .render(args.rect, args.output);
     Ok(())
   }
 }
@@ -254,22 +255,20 @@ where
       .map(|x| ListItem::new(list.format(x)))
       .collect::<Vec<_>>();
 
-    let list = List::new(list_items)
-      .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-      .highlight_symbol("➤ ");
-    args
-      .output
-      .render_stateful_widget(list, args.rect, &mut self.state);
-
-    let mut ratio =
-      self.state.selected().unwrap_or(0) as f64 / (items.len() - 1) as f64;
-    if ratio.is_nan() {
-      ratio = 0.0;
-    }
-    args.output.render_widget(
-      ScrollBar::new(ratio).style(Style::default().fg(Color::White)),
+    let _list = widgets::StatefulWidget::render(
+      List::new(list_items)
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        .highlight_symbol("➤ "),
       args.rect,
+      args.output,
+      &mut self.state,
     );
+
+    let ratio =
+      self.state.selected().unwrap_or(0) as f64 / (items.len() - 1) as f64;
+    ScrollBar::new(ratio)
+      .style(Style::default().fg(Color::White))
+      .render(args.rect, args.output);
 
     Ok(())
   }

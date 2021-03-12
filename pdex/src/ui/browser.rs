@@ -4,13 +4,18 @@ use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 
+use tui::backend::Backend;
 use tui::layout::Constraint;
 use tui::layout::Direction;
 use tui::layout::Layout;
+use tui::layout::Rect;
+use tui::Frame;
 
 use crate::dex::Dex;
+use crate::ui::component::Component;
+use crate::ui::component::KeyArgs;
+use crate::ui::component::RenderArgs;
 use crate::ui::page::Page;
-use crate::ui::Frame;
 
 /// The root browser type.
 pub struct Browser {
@@ -67,10 +72,11 @@ impl Browser {
     }
 
     let mut buf = CommandBuffer::new();
-    self
-      .focused_window()
-      .current_page()
-      .process_key(k, dex, &mut buf);
+    self.focused_window().current_page().process_key(KeyArgs {
+      key: k,
+      dex,
+      commands: &mut buf,
+    });
 
     for c in &buf.commands {
       match c {
@@ -124,29 +130,48 @@ impl Browser {
   }
 
   /// Renders the UI onto a `Frame` by recursively rendering every subcomponent.
-  pub fn render(&mut self, dex: &mut Dex, f: &mut Frame) {
-    let pane_count = self.windows.len();
-    let mut constraints = vec![Constraint::Ratio(1, pane_count as u32)];
-    for _ in 1..pane_count {
-      constraints.push(Constraint::Length(1));
-      constraints.push(Constraint::Ratio(1, pane_count as u32));
+  pub fn render<B: Backend>(&mut self, dex: &mut Dex, f: &mut Frame<B>) {
+    use tui::widgets::Widget;
+    struct BrowserAsWidget<'a> {
+      b: &'a mut Browser,
+      dex: &'a mut Dex,
+    }
+    impl Widget for BrowserAsWidget<'_> {
+      fn render(self, rect: Rect, buf: &mut tui::buffer::Buffer) {
+        let pane_count = self.b.windows.len();
+        let mut constraints = vec![Constraint::Ratio(1, pane_count as u32)];
+        for _ in 1..pane_count {
+          constraints.push(Constraint::Length(1));
+          constraints.push(Constraint::Ratio(1, pane_count as u32));
+        }
+
+        let pane_rects = Layout::default()
+          .direction(Direction::Horizontal)
+          .margin(1)
+          .constraints(constraints)
+          .split(rect);
+
+        let pane_rects = pane_rects
+          .into_iter()
+          .enumerate()
+          .filter(|(i, _)| i % 2 == 0)
+          .map(|(_, r)| r);
+
+        for (i, (w, rect)) in
+          self.b.windows.iter_mut().zip(pane_rects).enumerate()
+        {
+          let _ = w.current_page().render(RenderArgs {
+            is_focused: i == self.b.focused_idx,
+            dex: self.dex,
+            output: buf,
+            rect,
+          });
+        }
+      }
     }
 
-    let pane_rects = Layout::default()
-      .direction(Direction::Horizontal)
-      .margin(1)
-      .constraints(constraints)
-      .split(f.size());
-
-    let pane_rects = pane_rects
-      .into_iter()
-      .enumerate()
-      .filter(|(i, _)| i % 2 == 0)
-      .map(|(_, r)| r);
-
-    for (i, (w, rect)) in self.windows.iter_mut().zip(pane_rects).enumerate() {
-      w.current_page().render(i == self.focused_idx, dex, f, rect);
-    }
+    let size = f.size();
+    f.render_widget(BrowserAsWidget { b: self, dex }, size);
   }
 }
 

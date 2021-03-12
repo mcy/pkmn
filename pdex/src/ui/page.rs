@@ -1,33 +1,26 @@
 //! Browseable pages.
 
 use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
+
 use crossterm::event::KeyModifiers;
+
+use pkmn::api;
 
 use tui::layout::Constraint;
 use tui::layout::Direction;
 use tui::layout::Layout;
-use tui::layout::Rect;
+
 use tui::style::Color;
 use tui::style::Modifier;
 use tui::style::Style;
+use tui::widgets::Widget as _;
 
-use crate::dex::Dex;
-use crate::ui::browser::CommandBuffer;
+use crate::download::Progress;
 use crate::ui::component::Component;
 use crate::ui::component::KeyArgs;
-
 use crate::ui::component::RenderArgs;
-
 use crate::ui::widgets::Chrome;
 use crate::ui::widgets::ProgressBar;
-use crate::ui::Frame;
-
-#[derive(Clone, Debug)]
-pub struct Page {
-  root: Node,
-  url: String,
-}
 
 #[derive(Clone, Debug)]
 pub enum Node {
@@ -41,6 +34,78 @@ pub enum Node {
     size_constraint: Option<Constraint>,
     component: Box<dyn Component>,
   },
+}
+
+impl Node {
+  fn render(&mut self, args: RenderArgs) {
+    match self {
+      Node::Leaf { component, .. } => match component.render(RenderArgs {
+        is_focused: args.is_focused,
+        dex: args.dex,
+        rect: args.rect,
+        output: args.output,
+      }) {
+        Ok(()) => {}
+        Err(e) => ProgressBar::new(&e)
+          .style(Style::default().fg(Color::White))
+          .gauge_style(Style::default().bg(Color::Black))
+          .render(args.rect, args.output),
+      },
+      Node::Stack {
+        nodes,
+        direction,
+        focus_idx,
+        ..
+      } => {
+        let mut constraints = Vec::new();
+        let len = nodes.len();
+        for node in &mut *nodes {
+          constraints.push(match node {
+            Node::Stack {
+              size_constraint: Some(c),
+              ..
+            } => *c,
+            Node::Leaf {
+              size_constraint: Some(c),
+              ..
+            } => *c,
+            _ => Constraint::Ratio(1, len as u32),
+          });
+        }
+
+        // Fix up the focus pointers so that they point at something
+        // reasonable, rather than at nothing. To do this, we make each
+        // unpointed focus index point to the first focusable element in
+        // each stack node.
+        if focus_idx.is_none() {
+          *focus_idx = nodes
+            .iter()
+            .enumerate()
+            .find(|(_, node)| match node {
+              Node::Leaf { component, .. } => component.wants_focus(),
+              _ => true,
+            })
+            .map(|(i, _)| i);
+        }
+
+        let layout = Layout::default()
+          .direction(direction.clone())
+          .constraints(constraints)
+          .split(args.rect);
+
+        for (i, (node, rect)) in
+          nodes.iter_mut().zip(layout.into_iter()).enumerate()
+        {
+          node.render(RenderArgs {
+            is_focused: args.is_focused && *focus_idx == Some(i),
+            dex: args.dex,
+            output: args.output,
+            rect,
+          });
+        }
+      }
+    }
+  }
 }
 
 macro_rules! node {
@@ -121,6 +186,12 @@ macro_rules! __node {
   (@$nodes:ident $(,)*) => {};
 }
 
+#[derive(Clone, Debug)]
+pub struct Page {
+  root: Node,
+  url: String,
+}
+
 impl Page {
   pub fn from_url(url: &str) -> Page {
     use crate::ui::component::*;
@@ -167,13 +238,14 @@ impl Page {
       url: url.to_string(),
     }
   }
+}
 
-  pub fn process_key(
-    &mut self,
-    key: KeyEvent,
-    dex: &mut Dex,
-    commands: &mut CommandBuffer,
-  ) {
+impl Component for Page {
+  fn wants_focus(&self) -> bool {
+    true
+  }
+
+  fn process_key(&mut self, args: KeyArgs) {
     let mut focus = &mut self.root;
     // NOTE: This is a raw pointer to prevent aliasing hazards.
     let mut focus_stack = Vec::<*mut Node>::new();
@@ -194,15 +266,19 @@ impl Page {
     };
 
     if let Some(component) = component {
-      component.process_key(KeyArgs { key, dex, commands });
-      if !commands.has_key() {
+      component.process_key(KeyArgs {
+        key: args.key,
+        dex: args.dex,
+        commands: args.commands,
+      });
+      if !args.commands.has_key() {
         return;
       }
     }
 
     // For the purpose of moving focus, we ignore anything with modifiers,
     // since those get taken by the layer above.
-    if key.modifiers != KeyModifiers::empty() {
+    if args.key.modifiers != KeyModifiers::empty() {
       return;
     }
 
@@ -216,7 +292,7 @@ impl Page {
       };
 
       #[rustfmt::skip]
-      let (focus_idx, nodes, delta) = match (focus, key.code) {
+      let (focus_idx, nodes, delta) = match (focus, args.key.code) {
         (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Up) => (focus_idx, nodes, -1),
         (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Down) => (focus_idx, nodes, 1),
         (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Left) => (focus_idx, nodes, -1),
@@ -245,104 +321,28 @@ impl Page {
 
       if old_val != new_val as usize {
         *focus_idx = Some(new_val as usize);
-        commands.take_key();
+        args.commands.take_key();
         break;
       }
     }
   }
 
   /// Renders the UI onto a frame.
-  pub fn render(
-    &mut self,
-    is_focused: bool,
-    dex: &mut Dex,
-    f: &mut Frame,
-    rect: Rect,
-  ) {
-    fn inner(
-      node: &mut Node,
-      is_focused: bool,
-      dex: &mut Dex,
-      f: &mut Frame,
-      rect: Rect,
-    ) {
-      match node {
-        Node::Leaf { component, .. } => match component.render(RenderArgs {
-          is_focused,
-          dex,
-          rect,
-          output: f,
-        }) {
-          Ok(()) => {}
-          Err(e) => f.render_widget(
-            ProgressBar::new(&e)
-              .style(Style::default().fg(Color::White))
-              .gauge_style(Style::default().bg(Color::Black)),
-            rect,
-          ),
-        },
-        Node::Stack {
-          nodes,
-          direction,
-          focus_idx,
-          ..
-        } => {
-          let mut constraints = Vec::new();
-          let len = nodes.len();
-          for node in &mut *nodes {
-            constraints.push(match node {
-              Node::Stack {
-                size_constraint: Some(c),
-                ..
-              } => *c,
-              Node::Leaf {
-                size_constraint: Some(c),
-                ..
-              } => *c,
-              _ => Constraint::Ratio(1, len as u32),
-            });
-          }
-
-          // Fix up the focus pointers so that they point at something
-          // reasonable, rather than at nothing. To do this, we make each
-          // unpointed focus index point to the first focusable element in
-          // each stack node.
-          if focus_idx.is_none() {
-            *focus_idx = nodes
-              .iter()
-              .enumerate()
-              .find(|(_, node)| match node {
-                Node::Leaf { component, .. } => component.wants_focus(),
-                _ => true,
-              })
-              .map(|(i, _)| i);
-          }
-
-          let layout = Layout::default()
-            .direction(direction.clone())
-            .constraints(constraints)
-            .split(rect);
-
-          for (i, (node, rect)) in
-            nodes.iter_mut().zip(layout.into_iter()).enumerate()
-          {
-            let is_focused = is_focused && *focus_idx == Some(i);
-            inner(node, is_focused, dex, f, rect);
-          }
-        }
-      }
-    }
-
+  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
     let chrome = Chrome::new()
       .title(self.url.as_str())
       .footer(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
-      .focus_title(is_focused)
+      .focus_title(args.is_focused)
       .style(Style::default().fg(Color::White))
       .focused_style(Style::default().add_modifier(Modifier::BOLD))
       .focused_delims(("<", ">"));
-    let inner_rect = chrome.inner(rect);
-    f.render_widget(chrome, rect);
+    let inner_rect = chrome.inner(args.rect);
+    chrome.render(args.rect, args.output);
 
-    inner(&mut self.root, is_focused, dex, f, inner_rect)
+    self.root.render(RenderArgs {
+      rect: inner_rect,
+      ..args
+    });
+    Ok(())
   }
 }
