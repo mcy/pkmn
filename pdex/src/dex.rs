@@ -16,11 +16,16 @@ use pkmn::Api;
 use crate::download::Download;
 use crate::download::Progress;
 
-pub struct ResourceMap<T>(Arc<Api>, Download<HashMap<String, Arc<T>>, api::Error>);
+pub struct ResourceMap<T>(
+  Arc<Api>,
+  Download<HashMap<String, Arc<T>>, api::Error>,
+);
 impl<T: Endpoint> ResourceMap<T> {
-  pub fn get(&mut self) -> Result<&HashMap<String, Arc<T>>, Progress<api::Error>> {
+  pub fn get(
+    &mut self,
+  ) -> Result<&HashMap<String, Arc<T>>, Progress<api::Error>> {
     let api = Arc::clone(&self.0);
-     self.1.start(move |n| {
+    self.1.start(move |n| {
       let mut list = api.listing_of::<T>(64);
       let mut result = match list.advance() {
         Ok(x) => x.unwrap(),

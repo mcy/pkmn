@@ -1,9 +1,12 @@
 //! Leaf components.
 
+use std::fmt::Debug;
 use std::iter;
+use std::sync::Arc;
 
 use pkmn::api;
 use pkmn::model::LanguageName;
+use pkmn::model::Species;
 
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
@@ -275,78 +278,138 @@ impl Widget for Masthead<'_> {
   }
 }
 
-/// The pokedex component.
+pub trait Listable {
+  type Item;
+  fn from_dex(
+    &mut self,
+    dex: &mut Dex,
+  ) -> Result<Vec<Self::Item>, Progress<api::Error>>;
+  fn url_of(&self, item: &Self::Item) -> String;
+  fn format<'a>(&'a self, item: &'a Self::Item) -> Spans<'a>;
+}
+
 #[derive(Clone, Debug)]
-pub struct Pokedex {
+pub struct Listing<L: Listable> {
+  list: L,
+  items: Option<Vec<L::Item>>,
   state: ListState,
 }
 
-impl Pokedex {
-  pub fn new() -> Self {
+impl<L: Listable> Listing<L> {
+  pub fn new(list: L) -> Self {
     Self {
+      list,
+      items: None,
       state: zero_list_state(),
     }
   }
 }
 
-impl Component for Pokedex {
+impl<L> Component for Listing<L>
+where
+  L: Listable + Clone + Debug + 'static,
+  L::Item: Clone + Debug,
+{
+  fn wants_focus(&self) -> bool {
+    true
+  }
+
   fn process_key(&mut self, args: KeyArgs) {
-    if let Ok(species) = args.dex.species.get() {
-      match args.key.code {
-        KeyCode::Up => {
-          self
-            .state
-            .select(self.state.selected().map(|x| x.saturating_sub(1)));
-          args.commands.take_key()
+    if let Some(items) = &self.items {
+      let m = args.key.modifiers;
+      let delta: isize = match args.key.code {
+        KeyCode::Up => -1, 
+        KeyCode::Down => 1,
+        KeyCode::Char('u') if m == KeyModifiers::CONTROL => -20,
+        KeyCode::Char('d') if m == KeyModifiers::CONTROL => 20,
+
+        KeyCode::Enter => {
+          let index = self.state.selected().unwrap_or(0);
+          args.commands.navigate_to(self.list.url_of(&items[index]));
+          args.commands.take_key();
+          return
         }
-        KeyCode::Down => {
-          self.state.select(
-            self.state.selected().map(|x| {
-              x.saturating_add(1).min(species.len().saturating_sub(1))
-            }),
-          );
-          args.commands.take_key()
-        }
-        _ => {}
+        _ => return,
+      };
+
+      let index = self.state.selected().unwrap_or(0);
+      let new_idx = ((index as isize).saturating_add(delta).max(0) as usize)
+      .min(items.len().saturating_sub(1));
+
+      if index != new_idx {
+        self.state.select(Some(new_idx));
+        args.commands.take_key();
       }
     }
   }
 
   fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
-    let species = args.dex.species.get()?;
-    let pokemon = args.dex.pokemon.get()?;
+    let items = match &mut self.items {
+      Some(items) => items,
+      items => {
+        *items = Some(self.list.from_dex(args.dex)?);
+        items.as_mut().unwrap()
+      }
+    };
 
-    let mut species = species
+    let list = &self.list;
+    let list_items = items
       .iter()
-      .map(|(_, species)| {
-        let name = species
-          .localized_names
-          .get(LanguageName::English)
-          .unwrap_or("???");
-
-        let number = species
-          .pokedex_numbers
-          .iter()
-          .find(|n| n.pokedex.name() == Some("national"))
-          .unwrap()
-          .number;
-        (number, name)
-      })
-      .collect::<Vec<_>>();
-    species.sort_by_key(|&(number, _)| number);
-
-    let items = species
-      .into_iter()
-      .map(|(number, name)| ListItem::new(format!("#{:03} {}", number, name)))
+      .map(|x| ListItem::new(list.format(x)))
       .collect::<Vec<_>>();
 
-    let list = List::new(items)
+    let list = List::new(list_items)
       .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
       .highlight_symbol(">>");
     args
       .output
       .render_stateful_widget(list, args.rect, &mut self.state);
     Ok(())
+  }
+}
+
+/// The pokedex component.
+#[derive(Clone, Debug)]
+pub struct Pokedex(pub &'static str);
+
+impl Listable for Pokedex {
+  type Item = (u32, Arc<Species>);
+  fn from_dex(
+    &mut self,
+    dex: &mut Dex,
+  ) -> Result<Vec<Self::Item>, Progress<api::Error>> {
+    let mut species = dex
+      .species
+      .get()?
+      .iter()
+      .filter_map(|(_, species)| {
+        let name = species
+          .localized_names
+          .get(LanguageName::English)?;
+
+        let number = species
+          .pokedex_numbers
+          .iter()
+          .find(|n| n.pokedex.name() == Some(self.0))?
+          .number;
+        Some((number, species.clone()))
+      })
+      .collect::<Vec<_>>();
+    species.sort_by_key(|&(number, _)| number);
+    Ok(species)
+  }
+
+  fn url_of(&self, item: &Self::Item) -> String {
+    format!("pkmn://species/{}", item.1.name)
+  }
+
+  fn format<'a>(&'a self, item: &'a Self::Item) -> Spans<'a> {
+    let (num, species) = item;
+    let name = species
+      .localized_names
+      .get(LanguageName::English)
+      .unwrap_or("???");
+    format!("#{:03} {}", num, name).into()
   }
 }
 

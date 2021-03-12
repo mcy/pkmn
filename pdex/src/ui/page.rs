@@ -23,6 +23,7 @@ use crate::ui::browser::CommandBuffer;
 use crate::ui::component::Component;
 use crate::ui::component::DownloadProgress;
 use crate::ui::component::KeyArgs;
+use crate::ui::component::Listing;
 use crate::ui::component::Masthead;
 use crate::ui::component::RenderArgs;
 use crate::ui::component::TitleLink;
@@ -130,43 +131,45 @@ macro_rules! __node {
 impl Page {
   pub fn from_url(url: &str) -> Page {
     use crate::ui::component::*;
-    match url {
-      "pdex://main-menu" => Page {
-        root: node! {
-          v: [
-            (Constraint::Percentage(30)): Empty,
-            (Constraint::Length(1)): WelcomeMessage,
-            (Constraint::Length(1)): Empty,
-            (Constraint::Length(1)): TitleLink::new("pdex://pokedex", "Pokedex"),
-            (Constraint::Length(1)): TitleLink::new("pdex://focus-test", "Focus Test"),
-          ]
-        },
-        url: url.to_string(),
+    let root = match url {
+      "pdex://main-menu" => node! {
+        v: [
+          (Constraint::Percentage(30)): Empty,
+          (Constraint::Length(1)): WelcomeMessage,
+          (Constraint::Length(1)): Empty,
+          (Constraint::Length(1)): TitleLink::new("pdex://pokedex/national", "National Pokedex"),
+          (Constraint::Length(1)): TitleLink::new("pdex://pokedex/kanto", "Kanto Pokedex"),
+          (Constraint::Length(1)): TitleLink::new("pdex://pokedex/hoenn", "Hoenn Pokedex"),
+          (Constraint::Length(1)): TitleLink::new("pdex://pokedex/extended-sinnoh", "Sinnoh Pokedex"),
+          (Constraint::Length(1)): TitleLink::new("pdex://focus-test", "Focus Test"),
+        ]
       },
-      "pdex://pokedex" => Page {
-        root: node!(Pokedex::new()),
-        url: url.to_string(),
-      },
-      "pdex://focus-test" => Page {
-        root: node! {
-          v: [
-            TestBox("foo", true),
-            TestBox("bar", true),
-            h: [
-              TestBox("bang", false),
-              v: [
-                TestBox("!", false),
-                TestBox("?", true),
-                TestBox("!?", true),
-              ],
-              TestBox("bonk", true),
+      "pdex://pokedex/national" => node!(Listing::new(Pokedex("national"))),
+      "pdex://pokedex/kanto" => node!(Listing::new(Pokedex("kanto"))),
+      "pdex://pokedex/hoenn" => node!(Listing::new(Pokedex("hoenn"))),
+      "pdex://pokedex/extended-sinnoh" => node!(Listing::new(Pokedex("extended-sinnoh"))),
+      "pdex://focus-test" => node! {
+        v: [
+          TestBox("foo", true),
+          TestBox("bar", true),
+          h: [
+            TestBox("bang", false),
+            v: [
+              TestBox("!", false),
+              TestBox("?", true),
+              TestBox("!?", true),
             ],
-            TestBox("baz", true),
+            TestBox("bonk", true),
           ],
-        },
-        url: url.to_string(),
+          TestBox("baz", true),
+        ],
       },
-      _ => todo!(),
+      _ => node!(Empty),
+    };
+
+    Page {
+      root,
+      url: url.to_string(),
     }
   }
 
