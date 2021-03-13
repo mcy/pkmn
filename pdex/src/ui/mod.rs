@@ -26,6 +26,10 @@
 //! is only sent to the focused component within the focused pane. Rendering is
 //! done recursively every frame.
 
-pub mod browser;
+#[macro_use]
 pub mod component;
+
+pub mod browser;
+pub mod navigation;
+pub mod pages;
 pub mod widgets;

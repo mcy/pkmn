@@ -20,18 +20,19 @@ use crate::ui::component::EventArgs;
 use crate::ui::component::ListPositionUpdate;
 use crate::ui::component::Listable;
 use crate::ui::component::RenderArgs;
-use crate::ui::component::TextBox;
 
 #[derive(Clone, Debug)]
 pub struct PokedexDetail {
   pokedex: PokedexName,
   index: Option<usize>,
-  page: Option<Page>,
 }
 
 impl PokedexDetail {
   pub fn new(pokedex: PokedexName) -> Self {
-    Self { pokedex, index: Some(0) }
+    Self {
+      pokedex,
+      index: Some(0),
+    }
   }
 }
 
@@ -48,12 +49,10 @@ impl Component for PokedexDetail {
     &mut self,
     args: &mut RenderArgs,
   ) -> Result<(), Progress<api::Error>> {
-
-
     args.output.set_string(
       args.rect.x,
       args.rect.y,
-      format!("index = {}", self.index),
+      format!("index = {:?}", self.index),
       Style::default(),
     );
     Ok(())

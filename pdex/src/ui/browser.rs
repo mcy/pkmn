@@ -18,19 +18,26 @@ use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
+use crate::ui::component::Empty;
+use crate::ui::navigation::Handler;
+use crate::ui::pages;
 
 /// The root browser type.
 pub struct Browser {
   windows: Vec<Window>,
   focused_idx: usize,
+  url_handler: Handler,
 }
 
 impl Browser {
   /// Creates a brand new browser with default settings.
   pub fn new() -> Self {
+    let url_handler = pages::get();
+    let page = url_handler.navigate_to("pdex://main-menu").unwrap();
     Self {
-      windows: vec![Window::new()],
+      windows: vec![Window::new(page)],
       focused_idx: 0,
+      url_handler,
     }
   }
 
@@ -84,7 +91,8 @@ impl Browser {
       });
 
     if let Some(url) = buf.take_url() {
-      self.focused_window().navigate_to(Page::from_url(url))
+      let page = self.url_handler.navigate_to(&url);
+      self.focused_window().navigate_to(page.unwrap_or_else(move || Page::new(url, node!(Empty))))
     }
 
     if buf.is_claimed() {
@@ -111,7 +119,7 @@ impl Browser {
 
       // Spawn new window after the current one.
       KeyCode::Char('n') => {
-        self.windows.insert(self.focused_idx + 1, Window::new())
+        self.windows.insert(self.focused_idx + 1, Window::new(self.url_handler.navigate_to("pdex://main-menu").unwrap()))
       }
       KeyCode::Char('N') => {
         let clone = self.focused_window().clone();
@@ -185,9 +193,9 @@ pub struct Window {
 
 impl Window {
   /// Creates a new window with the default content.
-  pub fn new() -> Self {
+  pub fn new(page: Page) -> Self {
     Self {
-      history: vec![Page::from_url("pdex://main-menu")],
+      history: vec![page],
       current_page: 0,
     }
   }

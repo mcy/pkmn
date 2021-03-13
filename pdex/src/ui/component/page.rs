@@ -122,102 +122,16 @@ pub struct Page {
 
 impl Page {
   pub fn new(url: String, root: Node) -> Self {
-    Self { url, root, hide_chrome: true }
+    Self {
+      url,
+      root,
+      hide_chrome: false,
+    }
   }
 
   pub fn hide_chrome(mut self, flag: bool) -> Self {
     self.hide_chrome = flag;
     self
-  }
-
-  pub fn from_url(url: impl ToString) -> Self {
-    use crate::ui::component::*;
-    let url = url.to_string();
-    let root = match url.as_str() {
-      "pdex://main-menu" => node! {
-        v: [
-          (Constraint::Percentage(40)): Empty,
-          (Constraint::Length(1)):
-            Paragraph::new(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
-              .alignment(Alignment::Center),
-          (Constraint::Length(1)): Empty,
-          (Constraint::Length(1)):
-            Hyperlink::new("pdex://pokedex/national")
-              .label("National Pokedex")
-              .focused_style(Style::default().add_modifier(Modifier::BOLD))
-              .focused_delims((">", "<"))
-              .alignment(Alignment::Center),
-          (Constraint::Length(1)):
-            Hyperlink::new("pdex://pokedex/kanto")
-              .label("Kanto Pokedex")
-              .focused_style(Style::default().add_modifier(Modifier::BOLD))
-              .focused_delims((">", "<"))
-              .alignment(Alignment::Center),
-          (Constraint::Length(1)):
-            Hyperlink::new("pdex://pokedex/hoenn")
-              .label("Hoenn Pokedex")
-              .focused_style(Style::default().add_modifier(Modifier::BOLD))
-              .focused_delims((">", "<"))
-              .alignment(Alignment::Center),
-          (Constraint::Length(1)):
-            Hyperlink::new("pdex://pokedex/extended-sinnoh")
-              .label("Sinnoh Pokedex")
-              .focused_style(Style::default().add_modifier(Modifier::BOLD))
-              .focused_delims((">", "<"))
-              .alignment(Alignment::Center),
-          (Constraint::Length(1)):
-            Hyperlink::new("pdex://focus-test")
-              .label("Focus Test")
-              .focused_style(Style::default().add_modifier(Modifier::BOLD))
-              .focused_delims((">", "<"))
-              .alignment(Alignment::Center),
-          (Constraint::Percentage(50)): Empty,
-        ]
-      },
-      "pdex://pokedex/national" => node! {
-        h: [
-          (Constraint::Min(0)): PokedexDetail::new(PokedexName::National),
-          (Constraint::Length(40)): Listing::new(Pokedex(PokedexName::National)),
-        ]
-      },
-      "pdex://pokedex/kanto" => node! {
-        h: [
-          (Constraint::Min(0)): PokedexDetail::new(PokedexName::Kanto),
-          (Constraint::Length(40)): Listing::new(Pokedex(PokedexName::Kanto)),
-        ]
-      },
-      "pdex://pokedex/hoenn" => node! {
-        h: [
-          (Constraint::Min(0)): PokedexDetail::new(PokedexName::Hoenn),
-          (Constraint::Length(40)): Listing::new(Pokedex(PokedexName::Hoenn)),
-        ]
-      },
-      "pdex://pokedex/extended-sinnoh" => node! {
-        h: [
-          (Constraint::Min(0)): PokedexDetail::new(PokedexName::SinnohPt),
-          (Constraint::Length(40)): Listing::new(Pokedex(PokedexName::SinnohPt)),
-        ]
-      },
-      "pdex://focus-test" => node! {
-        v: [
-          TestBox::new(),
-          TestBox::new(),
-          h: [
-            TestBox::unfocusable(),
-            v: [
-              TestBox::unfocusable(),
-              TestBox::new(),
-              TestBox::new(),
-            ],
-            TestBox::new(),
-          ],
-          TestBox::new(),
-        ],
-      },
-      _ => node!(Empty),
-    };
-
-    Page::new(url, root)
   }
 }
 
@@ -358,8 +272,9 @@ impl Component for Page {
         .style(Style::default().fg(Color::White))
         .focused_style(Style::default().add_modifier(Modifier::BOLD))
         .focused_delims(("<", ">"));
+      let rect = args.rect;
       args.rect = chrome.inner(args.rect);
-      chrome.render(args.rect, args.output);
+      chrome.render(rect, args.output);
     }
 
     self.root.render(args);
