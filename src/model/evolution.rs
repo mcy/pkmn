@@ -10,11 +10,11 @@ use crate::api::Endpoint;
 use crate::model::item::Item;
 use crate::model::location::Location;
 use crate::model::mov::Move;
+use crate::model::resource::NamedResource;
 use crate::model::resource::Resource;
 use crate::model::species::Species;
 use crate::model::text::Localized;
-use crate::model::ty::Type;use crate::model::resource::NamedResource;
-
+use crate::model::ty::Type;
 
 /// A family of Pokemon related by evolution.
 ///

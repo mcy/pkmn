@@ -7,6 +7,7 @@ use serde::Serialize;
 use crate::api::Endpoint;
 use crate::model::contest;
 use crate::model::item::Tm;
+use crate::model::resource::NamedResource;
 use crate::model::resource::Resource;
 use crate::model::text;
 use crate::model::text::Effect;
@@ -14,8 +15,7 @@ use crate::model::text::Localized;
 use crate::model::ty::Type;
 use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
-use crate::model::Percent;use crate::model::resource::NamedResource;
-
+use crate::model::Percent;
 
 text_field!(flavor_text, description: Desc);
 

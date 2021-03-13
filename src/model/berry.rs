@@ -8,10 +8,10 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::model::item::Item;
+use crate::model::resource::NamedResource;
 use crate::model::resource::Resource;
 use crate::model::text::Localized;
-use crate::model::ty::Type;use crate::model::resource::NamedResource;
-
+use crate::model::ty::Type;
 
 /// A berry.
 ///

@@ -8,8 +8,8 @@ use crate::model::ability::Ability;
 use crate::model::location::Region;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
-use crate::model::resource::Resource;
 use crate::model::resource::NamedResource;
+use crate::model::resource::Resource;
 use crate::model::species::Species;
 use crate::model::text::Localized;
 use crate::model::ty::Type;
@@ -50,8 +50,8 @@ pub struct GameId {
   /// first Pokemon to be designed.
   #[serde(rename = "game_index")]
   pub id: u32,
-  /// The generation this index is applicable for.
-  pub generation: Resource<Generation>,
+  /// The version this index is applicable for.
+  pub version: Resource<Version>,
 }
 
 impl Endpoint for Generation {

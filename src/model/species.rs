@@ -15,8 +15,8 @@ use crate::model::item::Item;
 use crate::model::location::PalParkArea;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
-use crate::model::resource::Resource;
 use crate::model::resource::NamedResource;
+use crate::model::resource::Resource;
 use crate::model::stat::Stat;
 use crate::model::text::Localized;
 use crate::model::ty::Type;
@@ -46,7 +46,7 @@ pub struct Pokemon {
   /// This species' ordering number. This can be used to sort species by
   /// National Pokedex number, except that evolution families are grouped
   /// together and sorted by stage.
-  pub order: u32,
+  pub order: i32,
 
   /// The internal game ids for this Pokemon.
   #[serde(rename = "game_indices")]
@@ -79,9 +79,10 @@ pub struct Pokemon {
   /// Types this Pokemon has.
   pub types: Vec<ValidType>,
   /// Items this Pokemon can be found holding in the wild.
+  #[serde(default)]
   pub items: Vec<HeldItem>,
   /// Base stat values for this Pokemon.
-  pub stat: Vec<BaseStat>,
+  pub stats: Vec<BaseStat>,
 
   /// ???
   // TODO
@@ -146,6 +147,7 @@ pub struct ValidAbility {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidMove {
   /// Sources this move can be learned from.
+  #[serde(rename = "version_group_details")]
   pub sources: Vec<ValidMoveSource>,
   /// The corresponding move.
   #[serde(rename = "move")]
@@ -156,11 +158,13 @@ pub struct ValidMove {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidMoveSource {
   /// What level this move was learned at, if it is learned by level-up.
+  #[serde(rename = "level_learned_at")]
   pub level: Option<u32>,
   /// The method for learning this move via this source.
+  #[serde(rename = "move_learn_method")]
   pub method: Resource<LearnMethod>,
   /// The version group this source is valid for.
-  pub version_group: VersionGroup,
+  pub version_group: Resource<VersionGroup>,
 }
 
 /// An [`Item`] that a particular [`Pokemon`] can be holding in the wold.
@@ -214,8 +218,8 @@ pub struct Sprites {
 pub struct SpriteSet {
   /// The front-facing default (including male) sprite.
   ///
-  /// In general, this specific entry is guaranteed to be present.
-  pub front_default: Blob,
+  /// In general, this specific entry is almost always present.
+  pub front_default: Option<Blob>,
   /// The front-facing female sprite.
   pub front_female: Option<Blob>,
   /// The front-facing shiny (including male) sprite.

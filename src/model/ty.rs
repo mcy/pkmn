@@ -6,13 +6,13 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::model::mov::DamageClass;
-use crate::model::resource::Resource;
 use crate::model::resource::NameOf;
+use crate::model::resource::NamedResource;
+use crate::model::resource::Resource;
 use crate::model::species::Pokemon;
 use crate::model::text::Localized;
 use crate::model::version::GameId;
-use crate::model::version::Generation;use crate::model::resource::NamedResource;
-
+use crate::model::version::Generation;
 
 /// A Pokemon type.
 #[derive(Clone, Debug, Serialize, Deserialize)]
