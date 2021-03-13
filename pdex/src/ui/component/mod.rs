@@ -1,6 +1,8 @@
 //! Leaf components.
 
+use std::any::Any;
 use std::fmt::Debug;
+use std::mem;
 
 use pkmn::api;
 
@@ -25,7 +27,6 @@ use tui::widgets::Widget;
 
 use crate::dex::Dex;
 use crate::download::Progress;
-use crate::ui::browser::CommandBuffer;
 use crate::ui::widgets::ScrollBar;
 
 #[macro_use]
@@ -34,9 +35,68 @@ pub mod macros;
 pub mod page;
 pub mod pokedex;
 
-/// Arguments fot [`Component::process_key()`].
-pub struct KeyArgs<'browser> {
-  pub key: KeyEvent,
+pub enum Event {
+  Key(KeyEvent),
+  Message(Box<dyn Any>),
+}
+
+/// A buffer for issuing commands to the browser in response to an event.
+///
+/// Buffered commands will not take effect until event processing completes.
+pub struct CommandBuffer {
+  navigate_to: Option<String>,
+  messages: Vec<Box<dyn Any>>,
+  claimed: bool,
+}
+
+impl CommandBuffer {
+  /// Creates an empty buffer.
+  pub fn new() -> Self {
+    Self {
+      navigate_to: None,
+      messages: Vec::new(),
+      claimed: false,
+    }
+  }
+
+  /// Requests that the browser navigate to `url`.
+  pub fn navigate_to(&mut self, url: String) {
+    self.navigate_to = Some(url)
+  }
+
+  pub fn take_url(&mut self) -> Option<String> {
+    self.navigate_to.take()
+  }
+
+  /// Broadcasts a dynamically-typed message to all elements in the current
+  /// page.
+  pub fn broadcast(&mut self, message: Box<dyn Any>) {
+    self.messages.push(message)
+  }
+
+  /// Claims whatever messages were broadcast through this buffer for
+  /// processing.
+  pub fn claim_messages(&mut self) -> Vec<Box<dyn Any>> {
+    mem::take(&mut self.messages)
+  }
+
+  /// Claims the event being processed, so it will not be further propagated to
+  /// other components.
+  pub fn claim(&mut self) {
+    self.claimed = false
+  }
+
+  /// Returns whether a callee has already claimed the event associated with
+  /// this buffer.
+  pub fn is_claimed(&self) -> bool {
+    self.claimed
+  }
+}
+
+/// Arguments fot [`Component::process_event()`].
+pub struct EventArgs<'browser> {
+  //pub is_focused: bool,
+  pub event: Event,
   pub dex: &'browser mut Dex,
   pub commands: &'browser mut CommandBuffer,
 }
@@ -82,9 +142,9 @@ mod box_clone {
 /// `Box<dyn Component>` to be cloneable; `Sized` implementations should just
 /// make sure to implement `Clone` and be `'static`.
 pub trait Component: box_clone::BoxClone + Debug {
-  /// Processes a key-press, either mutating own state or issuing a command to
+  /// Processes an event, either mutating own state or issuing a command to
   /// the browser.
-  fn process_key(&mut self, args: KeyArgs) {
+  fn process_event(&mut self, args: EventArgs) {
     let _ = args;
   }
 
@@ -220,13 +280,15 @@ impl Component for Hyperlink {
     true
   }
 
-  fn process_key(&mut self, args: KeyArgs) {
-    match args.key.code {
-      KeyCode::Enter => {
-        args.commands.take_key();
-        args.commands.navigate_to(self.url.clone());
+  fn process_event(&mut self, args: EventArgs) {
+    if let Event::Key(key) = args.event {
+      match key.code {
+        KeyCode::Enter => {
+          args.commands.claim();
+          args.commands.navigate_to(self.url.clone());
+        }
+        _ => {}
       }
-      _ => {}
     }
   }
 
@@ -296,10 +358,10 @@ where
     true
   }
 
-  fn process_key(&mut self, args: KeyArgs) {
-    if let Some(items) = &self.items {
-      let m = args.key.modifiers;
-      let delta: isize = match args.key.code {
+  fn process_event(&mut self, args: EventArgs) {
+    if let (Event::Key(key), Some(items)) = (args.event, &self.items) {
+      let m = key.modifiers;
+      let delta: isize = match key.code {
         KeyCode::Up => -1,
         KeyCode::Down => 1,
         KeyCode::Char('u') if m == KeyModifiers::CONTROL => -20,
@@ -308,7 +370,7 @@ where
         KeyCode::Enter => {
           let index = self.state.selected().unwrap_or(0);
           args.commands.navigate_to(self.list.url_of(&items[index]));
-          args.commands.take_key();
+          args.commands.claim();
           return;
         }
         _ => return,
@@ -320,7 +382,7 @@ where
 
       if index != new_idx {
         self.state.select(Some(new_idx));
-        args.commands.take_key();
+        args.commands.claim();
       }
     }
   }

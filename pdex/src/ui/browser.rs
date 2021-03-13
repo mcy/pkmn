@@ -1,7 +1,5 @@
 //! The root UI type.
 
-use std::mem;
-
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
@@ -15,8 +13,10 @@ use tui::Frame;
 
 use crate::dex::Dex;
 use crate::ui::component::page::Page;
+use crate::ui::component::CommandBuffer;
 use crate::ui::component::Component;
-use crate::ui::component::KeyArgs;
+use crate::ui::component::Event;
+use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
 
 /// The root browser type.
@@ -74,21 +74,20 @@ impl Browser {
     }
 
     let mut buf = CommandBuffer::new();
-    self.focused_window().current_page().process_key(KeyArgs {
-      key: k,
-      dex,
-      commands: &mut buf,
-    });
+    self
+      .focused_window()
+      .current_page()
+      .process_event(EventArgs {
+        event: Event::Key(k),
+        dex,
+        commands: &mut buf,
+      });
 
-    for c in mem::take(&mut buf.commands) {
-      match c {
-        Command::Navigate(url) => {
-          self.focused_window().navigate_to(Page::from_url(url))
-        }
-      }
+    if let Some(url) = buf.take_url() {
+      self.focused_window().navigate_to(Page::from_url(url))
     }
 
-    if !buf.has_key() {
+    if buf.is_claimed() {
       return;
     }
 
@@ -214,46 +213,5 @@ impl Window {
     self.current_page =
       ((self.current_page as isize).saturating_add(delta).max(0) as usize)
         .min(self.history.len() - 1)
-  }
-}
-
-/// A buffer for issuing commands to the browser in response to a key-press.
-///
-/// Buffered commands will not take effect until key-press processing completes.
-pub struct CommandBuffer {
-  commands: Vec<Command>,
-  has_key: bool,
-}
-
-enum Command {
-  Navigate(String),
-}
-
-impl CommandBuffer {
-  /// Creates an empty buffer.
-  fn new() -> Self {
-    Self {
-      commands: Vec::new(),
-      has_key: true,
-    }
-  }
-
-  /// Requests that the browser navigate to `url`.
-  pub fn navigate_to(&mut self, url: String) {
-    self.commands.push(Command::Navigate(url))
-  }
-
-  /// Indicates to the browser that the key being processed was not consumed,
-  /// and that it should process it at global scope instead.
-  pub fn take_key(&mut self) {
-    self.has_key = false
-  }
-
-  /// Returns whether a callee has already taken the key associated with this
-  /// key-press processing operation.
-  ///
-  /// Returns `true` if the key is as-yet unprocessed.
-  pub fn has_key(&self) -> bool {
-    self.has_key
   }
 }
