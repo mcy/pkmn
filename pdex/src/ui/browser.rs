@@ -77,7 +77,7 @@ impl Browser {
     self
       .focused_window()
       .current_page()
-      .process_event(EventArgs {
+      .process_event(&mut EventArgs {
         event: Event::Key(k),
         dex,
         commands: &mut buf,
@@ -161,7 +161,7 @@ impl Browser {
         for (i, (w, rect)) in
           self.b.windows.iter_mut().zip(pane_rects).enumerate()
         {
-          let _ = w.current_page().render(RenderArgs {
+          let _ = w.current_page().render(&mut RenderArgs {
             is_focused: i == self.b.focused_idx,
             dex: self.dex,
             output: buf,

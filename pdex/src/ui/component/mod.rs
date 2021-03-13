@@ -144,12 +144,12 @@ mod box_clone {
 pub trait Component: box_clone::BoxClone + Debug {
   /// Processes an event, either mutating own state or issuing a command to
   /// the browser.
-  fn process_event(&mut self, args: EventArgs) {
+  fn process_event(&mut self, args: &mut EventArgs) {
     let _ = args;
   }
 
   /// Renders this component.
-  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>>;
+  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>>;
 
   /// Returns whether this component should be given focus at all.
   fn wants_focus(&self) -> bool {
@@ -161,7 +161,7 @@ impl<W> Component for W
 where
   W: Widget + Clone + Debug + 'static,
 {
-  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
     self.clone().render(args.rect, args.output);
     Ok(())
   }
@@ -172,7 +172,7 @@ where
 #[derive(Clone, Debug)]
 pub struct Empty;
 impl Component for Empty {
-  fn render(&mut self, _: RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, _: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
     Ok(())
   }
 }
@@ -193,7 +193,7 @@ impl TestBox {
   }
 }
 impl Component for TestBox {
-  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
     for dx in 1..args.rect.width.saturating_sub(1) {
       for dy in 1..args.rect.height.saturating_sub(1) {
         let x = args.rect.x + dx;
@@ -280,7 +280,7 @@ impl Component for Hyperlink {
     true
   }
 
-  fn process_event(&mut self, args: EventArgs) {
+  fn process_event(&mut self, args: &mut EventArgs) {
     if let Event::Key(key) = args.event {
       match key.code {
         KeyCode::Enter => {
@@ -292,7 +292,7 @@ impl Component for Hyperlink {
     }
   }
 
-  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
     let text = if args.is_focused {
       let (l, r) = self
         .focused_delims
@@ -358,8 +358,8 @@ where
     true
   }
 
-  fn process_event(&mut self, args: EventArgs) {
-    if let (Event::Key(key), Some(items)) = (args.event, &self.items) {
+  fn process_event(&mut self, args: &mut EventArgs) {
+    if let (Event::Key(key), Some(items)) = (&args.event, &self.items) {
       let m = key.modifiers;
       let delta: isize = match key.code {
         KeyCode::Up => -1,
@@ -387,7 +387,7 @@ where
     }
   }
 
-  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
     let items = match &mut self.items {
       Some(items) => items,
       items => {

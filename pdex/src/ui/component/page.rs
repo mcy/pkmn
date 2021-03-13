@@ -40,9 +40,9 @@ pub enum Node {
 }
 
 impl Node {
-  fn render(&mut self, args: RenderArgs) {
+  fn render(&mut self, args: &mut RenderArgs) {
     match self {
-      Node::Leaf { component, .. } => match component.render(RenderArgs {
+      Node::Leaf { component, .. } => match component.render(&mut RenderArgs {
         is_focused: args.is_focused,
         dex: args.dex,
         rect: args.rect,
@@ -99,7 +99,7 @@ impl Node {
         for (i, (node, rect)) in
           nodes.iter_mut().zip(layout.into_iter()).enumerate()
         {
-          node.render(RenderArgs {
+          node.render(&mut RenderArgs {
             is_focused: args.is_focused && *focus_idx == Some(i),
             dex: args.dex,
             output: args.output,
@@ -206,7 +206,7 @@ impl Component for Page {
     true
   }
 
-  fn process_event(&mut self, args: EventArgs) {
+  fn process_event(&mut self, args: &mut EventArgs) {
     if let Event::Key(key) = args.event {
       let mut focus = &mut self.root;
       // NOTE: This is a raw pointer to prevent aliasing hazards.
@@ -228,7 +228,7 @@ impl Component for Page {
       };
 
       if let Some(component) = component {
-        component.process_event(EventArgs {
+        component.process_event(&mut EventArgs {
           event: Event::Key(key),
           dex: args.dex,
           commands: args.commands,
@@ -295,7 +295,10 @@ impl Component for Page {
   }
 
   /// Renders the UI onto a frame.
-  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(
+    &mut self,
+    args: &mut RenderArgs,
+  ) -> Result<(), Progress<api::Error>> {
     let chrome = Chrome::new()
       .title(self.url.as_str())
       .footer(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
@@ -306,9 +309,11 @@ impl Component for Page {
     let inner_rect = chrome.inner(args.rect);
     chrome.render(args.rect, args.output);
 
-    self.root.render(RenderArgs {
+    self.root.render(&mut RenderArgs {
       rect: inner_rect,
-      ..args
+      dex: args.dex,
+      is_focused: args.is_focused,
+      output: args.output,
     });
     Ok(())
   }
