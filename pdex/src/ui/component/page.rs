@@ -117,11 +117,17 @@ impl Node {
 pub struct Page {
   root: Node,
   url: String,
+  hide_chrome: bool,
 }
 
 impl Page {
   pub fn new(url: String, root: Node) -> Self {
-    Self { url, root }
+    Self { url, root, hide_chrome: true }
+  }
+
+  pub fn hide_chrome(mut self, flag: bool) -> Self {
+    self.hide_chrome = flag;
+    self
   }
 
   pub fn from_url(url: impl ToString) -> Self {
@@ -211,7 +217,7 @@ impl Page {
       _ => node!(Empty),
     };
 
-    Page { root, url }
+    Page::new(url, root)
   }
 }
 
@@ -250,9 +256,9 @@ impl Component for Page {
             }
           };
 
-          /// TODO: do not deliver key-presses to components which have zero
-          /// width or height (this will also be needed for mouse support later)
-          /// anyways.
+          // TODO: do not deliver key-presses to components which have zero
+          // width or height (this will also be needed for mouse support later)
+          // anyways.
           if let Some(component) = component {
             component.process_event(args);
             if args.commands.is_claimed() {
@@ -344,22 +350,19 @@ impl Component for Page {
     &mut self,
     args: &mut RenderArgs,
   ) -> Result<(), Progress<api::Error>> {
-    let chrome = Chrome::new()
-      .title(self.url.as_str())
-      .footer(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
-      .focus_title(args.is_focused)
-      .style(Style::default().fg(Color::White))
-      .focused_style(Style::default().add_modifier(Modifier::BOLD))
-      .focused_delims(("<", ">"));
-    let inner_rect = chrome.inner(args.rect);
-    chrome.render(args.rect, args.output);
+    if !self.hide_chrome {
+      let chrome = Chrome::new()
+        .title(self.url.as_str())
+        .footer(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
+        .focus_title(args.is_focused)
+        .style(Style::default().fg(Color::White))
+        .focused_style(Style::default().add_modifier(Modifier::BOLD))
+        .focused_delims(("<", ">"));
+      args.rect = chrome.inner(args.rect);
+      chrome.render(args.rect, args.output);
+    }
 
-    self.root.render(&mut RenderArgs {
-      rect: inner_rect,
-      dex: args.dex,
-      is_focused: args.is_focused,
-      output: args.output,
-    });
+    self.root.render(args);
     Ok(())
   }
 }

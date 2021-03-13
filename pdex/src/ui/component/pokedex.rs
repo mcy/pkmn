@@ -20,16 +20,18 @@ use crate::ui::component::EventArgs;
 use crate::ui::component::ListPositionUpdate;
 use crate::ui::component::Listable;
 use crate::ui::component::RenderArgs;
+use crate::ui::component::TextBox;
 
 #[derive(Clone, Debug)]
 pub struct PokedexDetail {
   pokedex: PokedexName,
-  index: usize,
+  index: Option<usize>,
+  page: Option<Page>,
 }
 
 impl PokedexDetail {
   pub fn new(pokedex: PokedexName) -> Self {
-    Self { pokedex, index: 0 }
+    Self { pokedex, index: Some(0) }
   }
 }
 
@@ -37,7 +39,7 @@ impl Component for PokedexDetail {
   fn process_event(&mut self, args: &mut EventArgs) {
     if let Event::Message(m) = &args.event {
       if let Some(update) = m.downcast_ref::<ListPositionUpdate<Pokedex>>() {
-        self.index = update.index;
+        self.index = Some(update.index);
       }
     }
   }
@@ -46,6 +48,8 @@ impl Component for PokedexDetail {
     &mut self,
     args: &mut RenderArgs,
   ) -> Result<(), Progress<api::Error>> {
+
+
     args.output.set_string(
       args.rect.x,
       args.rect.y,

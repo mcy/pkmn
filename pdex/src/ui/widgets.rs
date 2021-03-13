@@ -46,7 +46,7 @@ impl<'a, E> ProgressBar<'a, E> {
 }
 
 impl<E: std::error::Error> Widget for ProgressBar<'_, E> {
-  fn render(self, rect: Rect, buf: &mut Buffer) {
+  fn render(self, _: Rect, buf: &mut Buffer) {
     let rect = *buf.area();
     const MAX_WIDTH: u16 = 60;
     let width = MAX_WIDTH.min(rect.width);
