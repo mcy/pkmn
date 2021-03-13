@@ -16,6 +16,7 @@ use crate::model::location::PalParkArea;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
 use crate::model::resource::Resource;
+use crate::model::resource::NamedResource;
 use crate::model::stat::Stat;
 use crate::model::text::Localized;
 use crate::model::ty::Type;
@@ -179,7 +180,7 @@ pub struct ValidType {
   pub slot: u8,
   /// The type in this slot.
   #[serde(rename = "type")]
-  pub ty: Resource<Type>,
+  pub ty: NamedResource<Type>,
 }
 
 /// A base [`Stat`] for a particular [`Pokemon`].
@@ -425,7 +426,7 @@ pub struct DexEntry {
   #[serde(rename = "entry_number")]
   pub number: u32,
   /// The pokedex this entry refers to.
-  pub pokedex: Resource<Pokedex>,
+  pub pokedex: NamedResource<Pokedex>,
 }
 
 /// An encounter within a Pal Park area.

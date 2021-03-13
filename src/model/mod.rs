@@ -43,3 +43,6 @@ pub use species::Species;
 pub use stat::Stat;
 pub use ty::Type;
 pub use version::Generation;
+
+pub use pokedex::PokedexName;
+pub use ty::TypeName;

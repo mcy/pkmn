@@ -9,6 +9,7 @@ use crate::model::location::Region;
 use crate::model::mov::Move;
 use crate::model::pokedex::Pokedex;
 use crate::model::resource::Resource;
+use crate::model::resource::NamedResource;
 use crate::model::species::Species;
 use crate::model::text::Localized;
 use crate::model::ty::Type;
@@ -37,7 +38,7 @@ pub struct Generation {
   #[serde(rename = "pokemon_species")]
   pub species: Vec<Resource<Species>>,
   /// Types introduced in this generation.
-  pub types: Vec<Resource<Type>>,
+  pub types: Vec<NamedResource<Type>>,
 }
 
 /// An internal id value for an entity in a particular generation of games.
@@ -72,7 +73,7 @@ pub struct VersionGroup {
   /// The regions that can be visited in this version.
   pub regions: Vec<Resource<Region>>,
   /// The Pokedexes available in this version group.
-  pub pokedexes: Vec<Resource<Pokedex>>,
+  pub pokedexes: Vec<NamedResource<Pokedex>>,
   /// The versions that make up this group.
   pub versions: Vec<Resource<Version>>,
 }

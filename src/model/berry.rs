@@ -10,7 +10,8 @@ use crate::api::Endpoint;
 use crate::model::item::Item;
 use crate::model::resource::Resource;
 use crate::model::text::Localized;
-use crate::model::ty::Type;
+use crate::model::ty::Type;use crate::model::resource::NamedResource;
+
 
 /// A berry.
 ///
@@ -44,7 +45,7 @@ pub struct Berry {
 
   /// The type the move Natural Gift takes on when the user is holding this
   /// berry.
-  pub natural_gift_type: Resource<Type>,
+  pub natural_gift_type: NamedResource<Type>,
   /// The power of the move Natural Gift when the user is holding this
   /// berry.
   pub natural_gift_power: u32,

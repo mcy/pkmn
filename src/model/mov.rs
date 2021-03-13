@@ -14,7 +14,8 @@ use crate::model::text::Localized;
 use crate::model::ty::Type;
 use crate::model::version::Generation;
 use crate::model::version::VersionGroup;
-use crate::model::Percent;
+use crate::model::Percent;use crate::model::resource::NamedResource;
+
 
 text_field!(flavor_text, description: Desc);
 
@@ -55,7 +56,7 @@ pub struct Move {
   pub target: Resource<Target>,
   /// This move's given type.
   #[serde(rename = "type")]
-  pub ty: Resource<Type>,
+  pub ty: NamedResource<Type>,
 
   /// The chance this move's secondary effect will occur.
   pub effect_chance: Percent,
@@ -166,7 +167,7 @@ pub struct Erratum {
   pub pp: u32,
   /// This move's given type.
   #[serde(rename = "type")]
-  pub ty: Resource<Type>,
+  pub ty: NamedResource<Type>,
 
   /// The chance this move's secondary effect will occur.
   pub effect_chance: Percent,

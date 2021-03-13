@@ -13,7 +13,8 @@ use crate::model::mov::Move;
 use crate::model::resource::Resource;
 use crate::model::species::Species;
 use crate::model::text::Localized;
-use crate::model::ty::Type;
+use crate::model::ty::Type;use crate::model::resource::NamedResource;
+
 
 /// A family of Pokemon related by evolution.
 ///
@@ -78,11 +79,11 @@ pub struct Condition {
   /// A species that must be present in the party during the trigger.
   pub party_species: Option<Resource<Species>>,
   /// A Pokemon type that must be present in the party during the trigger.
-  pub party_type: Option<Resource<Type>>,
+  pub party_type: Option<NamedResource<Type>>,
   /// A move that must be known during the trigger.
   pub known_move: Option<Resource<Move>>,
   /// A type of move that must be known during the trigger.
-  pub known_move_type: Option<Resource<Type>>,
+  pub known_move_type: Option<NamedResource<Type>>,
 
   /// A relation between Attack and Defense required during the trigger.
   #[serde(rename = "relative_physical_stats")]
