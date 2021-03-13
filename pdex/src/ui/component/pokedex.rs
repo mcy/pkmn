@@ -1,7 +1,6 @@
 //! Pokedex-related components.
 
 use std::fmt::Debug;
-
 use std::sync::Arc;
 
 use pkmn::api;
@@ -10,11 +9,56 @@ use pkmn::model::PokedexName;
 use pkmn::model::Pokemon;
 use pkmn::model::Species;
 
+use tui::style::Style;
 use tui::text::Spans;
 
 use crate::dex::Dex;
 use crate::download::Progress;
+use crate::ui::component::Component;
+use crate::ui::component::Event;
+use crate::ui::component::EventArgs;
+use crate::ui::component::ListPositionUpdate;
 use crate::ui::component::Listable;
+use crate::ui::component::RenderArgs;
+
+#[derive(Clone, Debug)]
+pub struct PokedexDetail {
+  pokedex: PokedexName,
+  index: usize,
+}
+
+impl PokedexDetail {
+  pub fn new(pokedex: PokedexName) -> Self {
+    Self { pokedex, index: 0 }
+  }
+}
+
+impl Component for PokedexDetail {
+  fn process_event(&mut self, args: &mut EventArgs) {
+    if let Event::Message(m) = &args.event {
+      if let Some(update) = m.downcast_ref::<ListPositionUpdate<Pokedex>>() {
+        self.index = update.index;
+      }
+    }
+  }
+
+  fn render(
+    &mut self,
+    args: &mut RenderArgs,
+  ) -> Result<(), Progress<api::Error>> {
+    args.output.set_string(
+      args.rect.x,
+      args.rect.y,
+      format!("index = {}", self.index),
+      Style::default(),
+    );
+    Ok(())
+  }
+
+  fn wants_focus(&self) -> bool {
+    true
+  }
+}
 
 /// The pokedex component.
 #[derive(Clone, Debug)]

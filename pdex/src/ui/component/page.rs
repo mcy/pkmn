@@ -18,6 +18,7 @@ use tui::widgets::Widget as _;
 
 use crate::download::Progress;
 use crate::ui::component::pokedex::Pokedex;
+use crate::ui::component::pokedex::PokedexDetail;
 use crate::ui::component::CommandBuffer;
 use crate::ui::component::Component;
 use crate::ui::component::Event;
@@ -167,18 +168,30 @@ impl Page {
           (Constraint::Percentage(50)): Empty,
         ]
       },
-      "pdex://pokedex/national" => {
-        node!(Listing::new(Pokedex(PokedexName::National)))
-      }
-      "pdex://pokedex/kanto" => {
-        node!(Listing::new(Pokedex(PokedexName::Kanto)))
-      }
-      "pdex://pokedex/hoenn" => {
-        node!(Listing::new(Pokedex(PokedexName::Hoenn)))
-      }
-      "pdex://pokedex/extended-sinnoh" => {
-        node!(Listing::new(Pokedex(PokedexName::SinnohPt)))
-      }
+      "pdex://pokedex/national" => node! {
+        h: [
+          (Constraint::Min(0)): PokedexDetail::new(PokedexName::National),
+          (Constraint::Length(40)): Listing::new(Pokedex(PokedexName::National)),
+        ]
+      },
+      "pdex://pokedex/kanto" => node! {
+        h: [
+          (Constraint::Min(0)): PokedexDetail::new(PokedexName::Kanto),
+          (Constraint::Length(40)): Listing::new(Pokedex(PokedexName::Kanto)),
+        ]
+      },
+      "pdex://pokedex/hoenn" => node! {
+        h: [
+          (Constraint::Min(0)): PokedexDetail::new(PokedexName::Hoenn),
+          (Constraint::Length(40)): Listing::new(Pokedex(PokedexName::Hoenn)),
+        ]
+      },
+      "pdex://pokedex/extended-sinnoh" => node! {
+        h: [
+          (Constraint::Min(0)): PokedexDetail::new(PokedexName::SinnohPt),
+          (Constraint::Length(40)): Listing::new(Pokedex(PokedexName::SinnohPt)),
+        ]
+      },
       "pdex://focus-test" => node! {
         v: [
           TestBox::new(),
@@ -212,103 +225,110 @@ impl Component for Page {
       return;
     }
 
-    match &args.event {
-      Event::Key(key) => {
-        let key = *key; // Explicitly end the lifetime of `key`.
-        let mut focus = &mut self.root;
-        // NOTE: This is a raw pointer to prevent aliasing hazards.
-        let mut focus_stack = Vec::<*mut Node>::new();
-        let component = loop {
-          focus_stack.push(focus as *mut _);
-          match focus {
-            Node::Stack {
-              focus_idx: Some(i),
-              nodes,
-              ..
-            } => match nodes.get_mut(*i) {
-              Some(node) => focus = node,
-              None => break None,
-            },
-            Node::Leaf { component, .. } => break Some(component),
-            _ => break None,
-          }
-        };
+    // NOTE: This is wrapped in an inline lambda so that return statements
+    // work as a goto out of the big match block.
+    (|| {
+      match &args.event {
+        Event::Key(key) => {
+          let key = *key; // Explicitly end the lifetime of `key`.
+          let mut focus = &mut self.root;
+          // NOTE: This is a raw pointer to prevent aliasing hazards.
+          let mut focus_stack = Vec::<*mut Node>::new();
+          let component = loop {
+            focus_stack.push(focus as *mut _);
+            match focus {
+              Node::Stack {
+                focus_idx: Some(i),
+                nodes,
+                ..
+              } => match nodes.get_mut(*i) {
+                Some(node) => focus = node,
+                None => break None,
+              },
+              Node::Leaf { component, .. } => break Some(component),
+              _ => break None,
+            }
+          };
 
-        if let Some(component) = component {
-          component.process_event(args);
-          if args.commands.is_claimed() {
+          /// TODO: do not deliver key-presses to components which have zero
+          /// width or height (this will also be needed for mouse support later)
+          /// anyways.
+          if let Some(component) = component {
+            component.process_event(args);
+            if args.commands.is_claimed() {
+              return;
+            }
+          }
+
+          // For the purpose of moving focus, we ignore anything with modifiers,
+          // since those get taken by the layer above.
+          if key.modifiers != KeyModifiers::empty() {
             return;
           }
-        }
 
-        // For the purpose of moving focus, we ignore anything with modifiers,
-        // since those get taken by the layer above.
-        if key.modifiers != KeyModifiers::empty() {
-          return;
-        }
+          'outer: loop {
+            use Direction::*;
+            use KeyCode::*;
 
-        'outer: loop {
-          use Direction::*;
-          use KeyCode::*;
+            focus = match focus_stack.pop() {
+              Some(ptr) => unsafe { &mut *ptr },
+              None => break,
+            };
 
-          focus = match focus_stack.pop() {
-            Some(ptr) => unsafe { &mut *ptr },
-            None => break,
-          };
+            #[rustfmt::skip]
+            let (focus_idx, nodes, delta) = match (focus, key.code) {
+              (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Up) =>
+                (focus_idx, nodes, -1),
+              (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Down) =>
+                (focus_idx, nodes, 1),
+              (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Left) =>
+                (focus_idx, nodes, -1),
+              (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Right) =>
+                (focus_idx, nodes, 1),
+              _ => continue,
+            };
 
-          #[rustfmt::skip]
-          let (focus_idx, nodes, delta) = match (focus, key.code) {
-            (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Up) =>
-              (focus_idx, nodes, -1),
-            (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Down) =>
-              (focus_idx, nodes, 1),
-            (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Left) =>
-              (focus_idx, nodes, -1),
-            (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Right) =>
-              (focus_idx, nodes, 1),
-            _ => continue,
-          };
+            let old_val = focus_idx.unwrap_or(0);
+            let mut new_val = old_val as isize;
+            loop {
+              new_val += delta;
+              if new_val < 0 {
+                continue 'outer;
+              }
 
-          let old_val = focus_idx.unwrap_or(0);
-          let mut new_val = old_val as isize;
-          loop {
-            new_val += delta;
-            if new_val < 0 {
-              continue 'outer;
-            }
-
-            match nodes.get(new_val as usize) {
-              Some(x) => match x {
-                Node::Leaf { component, .. } if !component.wants_focus() => {
-                  continue
-                }
-                _ => break,
-              },
-              None => continue 'outer,
-            }
-          }
-
-          if old_val != new_val as usize {
-            *focus_idx = Some(new_val as usize);
-            args.commands.claim();
-            break;
-          }
-        }
-      }
-      Event::Message(_) => {
-        fn propagate(node: &mut Node, args: &mut EventArgs) {
-          match node {
-            Node::Stack { nodes, .. } => {
-              for node in nodes {
-                propagate(node, args);
+              match nodes.get(new_val as usize) {
+                Some(x) => match x {
+                  Node::Leaf { component, .. } if !component.wants_focus() => {
+                    continue
+                  }
+                  _ => break,
+                },
+                None => continue 'outer,
               }
             }
-            Node::Leaf { component, .. } => component.process_event(args),
+
+            if old_val != new_val as usize {
+              *focus_idx = Some(new_val as usize);
+              args.commands.claim();
+              break;
+            }
           }
         }
-        propagate(&mut self.root, args);
+        Event::Message(_) => {
+          fn propagate(node: &mut Node, args: &mut EventArgs) {
+            match node {
+              Node::Stack { nodes, .. } => {
+                for node in nodes {
+                  propagate(node, args);
+                }
+              }
+              Node::Leaf { component, .. } => component.process_event(args),
+            }
+          }
+          propagate(&mut self.root, args);
+        }
       }
-    }
+    })();
 
     for message in args.commands.claim_messages() {
       self.process_event(&mut EventArgs {

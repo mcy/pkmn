@@ -2,6 +2,7 @@
 
 use std::any::Any;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::mem;
 
 use pkmn::api;
@@ -339,6 +340,11 @@ pub trait Listable {
   fn format<'a>(&'a self, item: &'a Self::Item) -> Spans<'a>;
 }
 
+pub struct ListPositionUpdate<L> {
+  pub index: usize,
+  _ph: PhantomData<fn() -> L>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Listing<L: Listable> {
   list: L,
@@ -394,6 +400,10 @@ where
       if index != new_idx {
         self.state.select(Some(new_idx));
         args.commands.claim();
+        args.commands.broadcast(Box::new(ListPositionUpdate::<L> {
+          index: new_idx,
+          _ph: PhantomData,
+        }))
       }
     }
   }
