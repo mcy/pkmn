@@ -95,7 +95,6 @@ impl CommandBuffer {
 
 /// Arguments fot [`Component::process_event()`].
 pub struct EventArgs<'browser> {
-  //pub is_focused: bool,
   pub event: Event,
   pub dex: &'browser mut Dex,
   pub commands: &'browser mut CommandBuffer,
@@ -149,7 +148,10 @@ pub trait Component: box_clone::BoxClone + Debug {
   }
 
   /// Renders this component.
-  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>>;
+  fn render(
+    &mut self,
+    args: &mut RenderArgs,
+  ) -> Result<(), Progress<api::Error>>;
 
   /// Returns whether this component should be given focus at all.
   fn wants_focus(&self) -> bool {
@@ -161,7 +163,10 @@ impl<W> Component for W
 where
   W: Widget + Clone + Debug + 'static,
 {
-  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(
+    &mut self,
+    args: &mut RenderArgs,
+  ) -> Result<(), Progress<api::Error>> {
     self.clone().render(args.rect, args.output);
     Ok(())
   }
@@ -193,7 +198,10 @@ impl TestBox {
   }
 }
 impl Component for TestBox {
-  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(
+    &mut self,
+    args: &mut RenderArgs,
+  ) -> Result<(), Progress<api::Error>> {
     for dx in 1..args.rect.width.saturating_sub(1) {
       for dy in 1..args.rect.height.saturating_sub(1) {
         let x = args.rect.x + dx;
@@ -292,7 +300,10 @@ impl Component for Hyperlink {
     }
   }
 
-  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(
+    &mut self,
+    args: &mut RenderArgs,
+  ) -> Result<(), Progress<api::Error>> {
     let text = if args.is_focused {
       let (l, r) = self
         .focused_delims
@@ -387,7 +398,10 @@ where
     }
   }
 
-  fn render(&mut self, args: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
+  fn render(
+    &mut self,
+    args: &mut RenderArgs,
+  ) -> Result<(), Progress<api::Error>> {
     let items = match &mut self.items {
       Some(items) => items,
       items => {
