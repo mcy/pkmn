@@ -48,7 +48,7 @@ well_known! {
     /// The Sinnoh Pokedex as it appears in DP.
     Sinnoh => "original-sinnoh",
     /// The Sinnoh Pokedex as it appears in Platinum.
-    SinnohPt => "updated-sinnoh",
+    SinnohPt => "extended-sinnoh",
     /// The Unova Pokedex as it appears in BW.
     Unova => "original-unova",
     /// The Unova Pokedex as it appears in B2W2.
