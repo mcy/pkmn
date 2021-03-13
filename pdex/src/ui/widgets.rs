@@ -4,6 +4,7 @@ use std::iter;
 
 use tui::buffer::Buffer;
 use tui::layout::Rect;
+use tui::style::Color;
 use tui::style::Modifier;
 use tui::style::Style;
 use tui::symbols;
@@ -44,7 +45,7 @@ impl<'a, E> ProgressBar<'a, E> {
   }
 }
 
-impl<E> Widget for ProgressBar<'_, E> {
+impl<E: std::error::Error> Widget for ProgressBar<'_, E> {
   fn render(self, rect: Rect, buf: &mut Buffer) {
     const MAX_WIDTH: u16 = 60;
     let width = MAX_WIDTH.min(rect.width);
@@ -86,6 +87,20 @@ impl<E> Widget for ProgressBar<'_, E> {
       .label(percent)
       .ratio(ratio)
       .render(gauge_rect, buf);
+
+    if let Some(error) = self.progress.errors.last() {
+      buf.set_span(
+        inner.x,
+        inner.y + 3,
+        &Span::styled(
+          error.to_string(),
+          Style::default()
+            .fg(Color::LightRed)
+            .add_modifier(Modifier::BOLD),
+        ),
+        inner.width,
+      );
+    }
   }
 }
 

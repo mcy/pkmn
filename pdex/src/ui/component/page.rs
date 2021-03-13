@@ -5,6 +5,7 @@ use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
 
 use pkmn::api;
+use pkmn::model::PokedexName;
 
 use tui::layout::Constraint;
 use tui::layout::Direction;
@@ -16,6 +17,7 @@ use tui::style::Style;
 use tui::widgets::Widget as _;
 
 use crate::download::Progress;
+use crate::ui::component::pokedex::Pokedex;
 use crate::ui::component::Component;
 use crate::ui::component::KeyArgs;
 use crate::ui::component::RenderArgs;
@@ -115,9 +117,14 @@ pub struct Page {
 }
 
 impl Page {
-  pub fn from_url(url: &str) -> Page {
+  pub fn new(url: String, root: Node) -> Self {
+    Self { url, root }
+  }
+
+  pub fn from_url(url: impl ToString) -> Self {
     use crate::ui::component::*;
-    let root = match url {
+    let url = url.to_string();
+    let root = match url.as_str() {
       "pdex://main-menu" => node! {
         v: [
           (Constraint::Percentage(40)): Empty,
@@ -158,11 +165,17 @@ impl Page {
           (Constraint::Percentage(50)): Empty,
         ]
       },
-      "pdex://pokedex/national" => node!(Listing::new(Pokedex("national"))),
-      "pdex://pokedex/kanto" => node!(Listing::new(Pokedex("kanto"))),
-      "pdex://pokedex/hoenn" => node!(Listing::new(Pokedex("hoenn"))),
+      "pdex://pokedex/national" => {
+        node!(Listing::new(Pokedex(PokedexName::National)))
+      }
+      "pdex://pokedex/kanto" => {
+        node!(Listing::new(Pokedex(PokedexName::Kanto)))
+      }
+      "pdex://pokedex/hoenn" => {
+        node!(Listing::new(Pokedex(PokedexName::Hoenn)))
+      }
       "pdex://pokedex/extended-sinnoh" => {
-        node!(Listing::new(Pokedex("extended-sinnoh")))
+        node!(Listing::new(Pokedex(PokedexName::SinnohPt)))
       }
       "pdex://focus-test" => node! {
         v: [
@@ -183,10 +196,7 @@ impl Page {
       _ => node!(Empty),
     };
 
-    Page {
-      root,
-      url: url.to_string(),
-    }
+    Page { root, url }
   }
 }
 

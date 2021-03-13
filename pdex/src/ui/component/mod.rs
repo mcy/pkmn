@@ -2,11 +2,7 @@
 
 use std::fmt::Debug;
 
-use std::sync::Arc;
-
 use pkmn::api;
-use pkmn::model::LanguageName;
-use pkmn::model::Species;
 
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
@@ -36,6 +32,7 @@ use crate::ui::widgets::ScrollBar;
 pub mod macros;
 
 pub mod page;
+pub mod pokedex;
 
 /// Arguments fot [`Component::process_key()`].
 pub struct KeyArgs<'browser> {
@@ -284,6 +281,10 @@ impl<L: Listable> Listing<L> {
       state: zero_list_state(),
     }
   }
+
+  pub fn selected(&self) -> Option<&L::Item> {
+    self.items.as_ref()?.get(self.state.selected()?)
+  }
 }
 
 impl<L> Component for Listing<L>
@@ -348,54 +349,13 @@ where
       &mut self.state,
     );
 
-    let ratio =
-      self.state.selected().unwrap_or(0) as f64 / (items.len() - 1) as f64;
+    let ratio = self.state.selected().unwrap_or(0) as f64
+      / (items.len().saturating_sub(1)) as f64;
     ScrollBar::new(ratio)
       .style(Style::default().fg(Color::White))
       .render(args.rect, args.output);
 
     Ok(())
-  }
-}
-
-/// The pokedex component.
-#[derive(Clone, Debug)]
-pub struct Pokedex(pub &'static str);
-
-impl Listable for Pokedex {
-  type Item = (u32, Arc<Species>);
-  fn from_dex(
-    &mut self,
-    dex: &mut Dex,
-  ) -> Result<Vec<Self::Item>, Progress<api::Error>> {
-    let mut species = dex
-      .species
-      .get()?
-      .iter()
-      .filter_map(|(_, species)| {
-        let number = species
-          .pokedex_numbers
-          .iter()
-          .find(|n| n.pokedex.name() == Some(self.0))?
-          .number;
-        Some((number, species.clone()))
-      })
-      .collect::<Vec<_>>();
-    species.sort_by_key(|&(number, _)| number);
-    Ok(species)
-  }
-
-  fn url_of(&self, item: &Self::Item) -> String {
-    format!("pkmn://species/{}", item.1.name)
-  }
-
-  fn format<'a>(&'a self, item: &'a Self::Item) -> Spans<'a> {
-    let (num, species) = item;
-    let name = species
-      .localized_names
-      .get(LanguageName::English)
-      .unwrap_or("???");
-    format!("#{:03} {}", num, name).into()
   }
 }
 

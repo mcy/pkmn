@@ -1,5 +1,7 @@
 //! The root UI type.
 
+use std::mem;
+
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
@@ -78,10 +80,10 @@ impl Browser {
       commands: &mut buf,
     });
 
-    for c in &buf.commands {
+    for c in mem::take(&mut buf.commands) {
       match c {
         Command::Navigate(url) => {
-          self.focused_window().navigate_to(Page::from_url(&url))
+          self.focused_window().navigate_to(Page::from_url(url))
         }
       }
     }
