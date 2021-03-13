@@ -108,84 +108,6 @@ impl Node {
   }
 }
 
-macro_rules! node {
-  ($($stuff:tt)*) => {{
-    let mut node = Vec::new();
-    __node!(@node $($stuff)*);
-    node.into_iter().next().unwrap()
-  }}
-}
-
-macro_rules! __node {
-  (@$nodes:ident v: [$($args:tt)*] $(, $($rest:tt)*)?) => {
-    $nodes.push({
-      let mut nodes = Vec::new();
-      __node!(@nodes $($args)*);
-      crate::ui::page::Node::Stack {
-        direction: tui::layout::Direction::Vertical,
-        size_constraint: None,
-        focus_idx: None,
-        nodes
-      }
-    });
-    $(__node!(@$nodes $($rest)*);)?
-  };
-  (@$nodes:ident v($constraint:expr): [$($args:tt)*] $(, $($rest:tt)*)?) => {
-    $nodes.push({
-      let mut nodes = Vec::new();
-      __node!(@nodes $($args)*);
-      crate::ui::page::Node::Stack {
-        direction: tui::layout::Direction::Vertical,
-        size_constraint: Some($constraint),
-        focus_idx: None,
-        nodes
-      }
-    });
-    $(__node!(@$nodes $($rest)*);)?
-  };
-  (@$nodes:ident h: [$($args:tt)*] $(, $($rest:tt)*)?) => {
-    $nodes.push({
-      let mut nodes = Vec::new();
-      __node!(@nodes $($args)*);
-      crate::ui::page::Node::Stack {
-        direction: tui::layout::Direction::Horizontal,
-        size_constraint: None,
-        focus_idx: None,
-        nodes
-      }
-    });
-    $(__node!(@$nodes $($rest)*);)?
-  };
-  (@$nodes:ident h($constraint:expr): [$($args:tt)*] $(, $($rest:tt)*)?) => {
-    $nodes.push({
-      let mut nodes = Vec::new();
-      __node!(@nodes $($args)*);
-      crate::ui::page::Node::Stack {
-        direction: tui::layout::Direction::Horizontal,
-        size_constraint: Some($constraint),
-        focus_idx: None,
-        nodes
-      }
-    });
-    $(__node!(@$nodes $($rest)*);)?
-  };
-  (@$nodes:ident ($constraint:expr): $expr:expr $(, $($rest:tt)*)?) => {
-    $nodes.push(crate::ui::page::Node::Leaf {
-      size_constraint: Some($constraint),
-      component: Box::new($expr),
-    });
-    $(__node!(@$nodes $($rest)*);)?
-  };
-  (@$nodes:ident $expr:expr $(, $($rest:tt)*)?) => {
-    $nodes.push(crate::ui::page::Node::Leaf {
-      size_constraint: None,
-      component: Box::new($expr),
-    });
-    $(__node!(@$nodes $($rest)*);)?
-  };
-  (@$nodes:ident $(,)*) => {};
-}
-
 #[derive(Clone, Debug)]
 pub struct Page {
   root: Node,
@@ -198,14 +120,42 @@ impl Page {
     let root = match url {
       "pdex://main-menu" => node! {
         v: [
-          (Constraint::Percentage(30)): Empty,
-          (Constraint::Length(1)): WelcomeMessage,
+          (Constraint::Percentage(40)): Empty,
+          (Constraint::Length(1)):
+            Paragraph::new(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
+              .alignment(Alignment::Center),
           (Constraint::Length(1)): Empty,
-          (Constraint::Length(1)): TitleLink::new("pdex://pokedex/national", "National Pokedex"),
-          (Constraint::Length(1)): TitleLink::new("pdex://pokedex/kanto", "Kanto Pokedex"),
-          (Constraint::Length(1)): TitleLink::new("pdex://pokedex/hoenn", "Hoenn Pokedex"),
-          (Constraint::Length(1)): TitleLink::new("pdex://pokedex/extended-sinnoh", "Sinnoh Pokedex"),
-          (Constraint::Length(1)): TitleLink::new("pdex://focus-test", "Focus Test"),
+          (Constraint::Length(1)):
+            Hyperlink::new("pdex://pokedex/national")
+              .label("National Pokedex")
+              .focused_style(Style::default().add_modifier(Modifier::BOLD))
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          (Constraint::Length(1)):
+            Hyperlink::new("pdex://pokedex/kanto")
+              .label("Kanto Pokedex")
+              .focused_style(Style::default().add_modifier(Modifier::BOLD))
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          (Constraint::Length(1)):
+            Hyperlink::new("pdex://pokedex/hoenn")
+              .label("Hoenn Pokedex")
+              .focused_style(Style::default().add_modifier(Modifier::BOLD))
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          (Constraint::Length(1)):
+            Hyperlink::new("pdex://pokedex/extended-sinnoh")
+              .label("Sinnoh Pokedex")
+              .focused_style(Style::default().add_modifier(Modifier::BOLD))
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          (Constraint::Length(1)):
+            Hyperlink::new("pdex://focus-test")
+              .label("Focus Test")
+              .focused_style(Style::default().add_modifier(Modifier::BOLD))
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          (Constraint::Percentage(50)): Empty,
         ]
       },
       "pdex://pokedex/national" => node!(Listing::new(Pokedex("national"))),
@@ -216,18 +166,18 @@ impl Page {
       }
       "pdex://focus-test" => node! {
         v: [
-          TestBox(true),
-          TestBox(true),
+          TestBox::new(),
+          TestBox::new(),
           h: [
-            TestBox(false),
+            TestBox::unfocusable(),
             v: [
-              TestBox(false),
-              TestBox(true),
-              TestBox(true),
+              TestBox::unfocusable(),
+              TestBox::new(),
+              TestBox::new(),
             ],
-            TestBox(true),
+            TestBox::new(),
           ],
-          TestBox(true),
+          TestBox::new(),
         ],
       },
       _ => node!(Empty),
@@ -293,10 +243,14 @@ impl Component for Page {
 
       #[rustfmt::skip]
       let (focus_idx, nodes, delta) = match (focus, args.key.code) {
-        (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Up) => (focus_idx, nodes, -1),
-        (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Down) => (focus_idx, nodes, 1),
-        (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Left) => (focus_idx, nodes, -1),
-        (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Right) => (focus_idx, nodes, 1),
+        (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Up) =>
+          (focus_idx, nodes, -1),
+        (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Down) =>
+          (focus_idx, nodes, 1),
+        (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Left) =>
+          (focus_idx, nodes, -1),
+        (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Right) =>
+          (focus_idx, nodes, 1),
         _ => continue,
       };
 

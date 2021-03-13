@@ -12,10 +12,10 @@ use tui::layout::Rect;
 use tui::Frame;
 
 use crate::dex::Dex;
+use crate::ui::component::page::Page;
 use crate::ui::component::Component;
 use crate::ui::component::KeyArgs;
 use crate::ui::component::RenderArgs;
-use crate::ui::page::Page;
 
 /// The root browser type.
 pub struct Browser {

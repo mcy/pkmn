@@ -25,12 +25,17 @@ use tui::widgets::List;
 use tui::widgets::ListItem;
 use tui::widgets::ListState;
 use tui::widgets::Paragraph;
-use tui::widgets::Widget as _;
+use tui::widgets::Widget;
 
 use crate::dex::Dex;
 use crate::download::Progress;
 use crate::ui::browser::CommandBuffer;
 use crate::ui::widgets::ScrollBar;
+
+#[macro_use]
+pub mod macros;
+
+pub mod page;
 
 /// Arguments fot [`Component::process_key()`].
 pub struct KeyArgs<'browser> {
@@ -47,28 +52,39 @@ pub struct RenderArgs<'browser> {
   pub output: &'browser mut Buffer,
 }
 
-#[doc(hidden)]
-pub trait BoxClone {
-  fn box_clone(&self) -> Box<dyn Component>;
-}
+mod box_clone {
+  use super::*;
 
-impl<T: 'static> BoxClone for T
-where
-  T: Clone + Component,
-{
-  fn box_clone(&self) -> Box<dyn Component> {
-    Box::new(self.clone())
+  pub trait BoxClone {
+    fn box_clone(&self) -> Box<dyn Component>;
+  }
+
+  impl<T> BoxClone for T
+  where
+    T: Clone + Component + 'static,
+  {
+    fn box_clone(&self) -> Box<dyn Component> {
+      Box::new(self.clone())
+    }
+  }
+
+  impl Clone for Box<dyn Component> {
+    fn clone(&self) -> Self {
+      self.box_clone()
+    }
   }
 }
 
-impl Clone for Box<dyn Component> {
-  fn clone(&self) -> Self {
-    self.box_clone()
-  }
-}
-
-/// A leaf component in a page.
-pub trait Component: BoxClone + std::fmt::Debug {
+/// A component, which is like a [`Widget`] but which can process
+/// input and access compelx state.
+///
+/// All [`Widget`]s that are both [`Clone`] and [`Debug`] are trivially
+/// unfocusable `Component`s.
+///
+/// The `BoxClone` supertrait requirement is a hack to allow
+/// `Box<dyn Component>` to be cloneable; `Sized` implementations should just
+/// make sure to implement `Clone` and be `'static`.
+pub trait Component: box_clone::BoxClone + Debug {
   /// Processes a key-press, either mutating own state or issuing a command to
   /// the browser.
   fn process_key(&mut self, args: KeyArgs) {
@@ -84,9 +100,41 @@ pub trait Component: BoxClone + std::fmt::Debug {
   }
 }
 
-#[derive(Clone, Debug)]
-pub struct TestBox(pub bool);
+impl<W> Component for W
+where
+  W: Widget + Clone + Debug + 'static,
+{
+  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
+    self.clone().render(args.rect, args.output);
+    Ok(())
+  }
+}
 
+/// A trivial [`Component`] that ignores all key presses and draws nothing to
+/// the screen.
+#[derive(Clone, Debug)]
+pub struct Empty;
+impl Component for Empty {
+  fn render(&mut self, _: RenderArgs) -> Result<(), Progress<api::Error>> {
+    Ok(())
+  }
+}
+
+/// A testing [`Component`] that fills its draw space with colored lines
+/// depending on whether it's focused.
+#[derive(Clone, Debug)]
+pub struct TestBox(bool);
+impl TestBox {
+  /// Creates a new [`TestBox`].
+  pub fn new() -> Self {
+    Self(true)
+  }
+
+  /// Creates a new [`TestBox`] that refuses to be focused.
+  pub fn unfocusable() -> Self {
+    Self(true)
+  }
+}
 impl Component for TestBox {
   fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
     for dx in 1..args.rect.width.saturating_sub(1) {
@@ -120,29 +168,57 @@ impl Component for TestBox {
 }
 
 #[derive(Clone, Debug)]
-pub struct Empty;
-impl Component for Empty {
-  fn render(&mut self, _: RenderArgs) -> Result<(), Progress<api::Error>> {
-    Ok(())
-  }
-}
-
-#[derive(Clone, Debug)]
-pub struct TitleLink {
+pub struct Hyperlink {
   url: String,
-  label: String, // TODO: Localize.
+  label: Option<String>, // TODO: Localize.
+  style: Style,
+  focused_style: Style,
+  focused_delims: Option<(String, String)>,
+  alignment: Alignment,
 }
 
-impl TitleLink {
-  pub fn new(url: impl ToString, label: impl ToString) -> Self {
+impl Hyperlink {
+  pub fn new(url: impl ToString) -> Self {
     Self {
       url: url.to_string(),
-      label: label.to_string(),
+      label: None,
+      style: Style::default(),
+      focused_style: Style::default(),
+      focused_delims: None,
+      alignment: Alignment::Left,
     }
+  }
+
+  pub fn label(mut self, label: impl ToString) -> Self {
+    self.label = Some(label.to_string());
+    self
+  }
+
+  pub fn style(mut self, style: Style) -> Self {
+    self.style = style;
+    self
+  }
+
+  pub fn focused_style(mut self, style: Style) -> Self {
+    self.focused_style = style;
+    self
+  }
+
+  pub fn focused_delims(
+    mut self,
+    (l, r): (impl ToString, impl ToString),
+  ) -> Self {
+    self.focused_delims = Some((l.to_string(), r.to_string()));
+    self
+  }
+
+  pub fn alignment(mut self, alignment: Alignment) -> Self {
+    self.alignment = alignment;
+    self
   }
 }
 
-impl Component for TitleLink {
+impl Component for Hyperlink {
   fn wants_focus(&self) -> bool {
     true
   }
@@ -159,27 +235,25 @@ impl Component for TitleLink {
 
   fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
     let text = if args.is_focused {
-      Span::styled(
-        format!(">{}<", self.label),
-        Style::default().add_modifier(Modifier::BOLD),
-      )
+      let (l, r) = self
+        .focused_delims
+        .as_ref()
+        .map(|(l, r)| (l.as_str(), r.as_str()))
+        .unwrap_or_default();
+      let style = self.style.patch(self.focused_style);
+      Spans::from(vec![
+        Span::styled(l, style),
+        Span::styled(self.label.as_ref().unwrap_or(&self.url), style),
+        Span::styled(r, style),
+      ])
     } else {
-      Span::styled(format!("{}", self.label), Style::default())
+      Spans::from(vec![Span::styled(
+        self.label.as_ref().unwrap_or(&self.url),
+        self.style,
+      )])
     };
-    let par = Paragraph::new(text).alignment(Alignment::Center);
-    par.render(args.rect, args.output);
-    Ok(())
-  }
-}
-
-/// The main menu component.
-#[derive(Clone, Debug)]
-pub struct WelcomeMessage;
-impl Component for WelcomeMessage {
-  fn render(&mut self, args: RenderArgs) -> Result<(), Progress<api::Error>> {
-    let welcome = Span::raw(format!("pdex v{}", env!("CARGO_PKG_VERSION")));
-    Paragraph::new(welcome)
-      .alignment(Alignment::Center)
+    Paragraph::new(text)
+      .alignment(self.alignment)
       .render(args.rect, args.output);
     Ok(())
   }
