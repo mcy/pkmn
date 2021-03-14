@@ -19,6 +19,7 @@ use crate::ui::component::Empty;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
+use crate::ui::component::StyleSheet;
 use crate::ui::navigation::Handler;
 use crate::ui::pages;
 
@@ -180,6 +181,7 @@ impl Browser {
             output: buf,
             rect,
             frame_number: self.b.frame_number,
+            style_sheet: StyleSheet::default(),
           });
         }
       }

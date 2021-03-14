@@ -86,6 +86,7 @@ impl Node {
             dex: args.dex,
             output: args.output,
             frame_number: args.frame_number,
+            style_sheet: args.style_sheet,
             rect,
           });
         }
@@ -247,8 +248,14 @@ impl Component for Page {
         .title(self.url.as_str())
         .footer(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
         .focus_title(args.is_focused)
-        .style(Style::default().fg(Color::White))
-        .focused_style(Style::default().add_modifier(Modifier::BOLD))
+        .style(args.style_sheet.unfocused)
+        .focused_style(
+          args
+            .style_sheet
+            .unfocused
+            .patch(args.style_sheet.focused)
+            .patch(args.style_sheet.selected),
+        )
         .focused_delims(("<", ">"));
       let rect = args.rect;
       args.rect = chrome.inner(args.rect);

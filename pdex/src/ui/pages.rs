@@ -33,31 +33,26 @@ pub fn get() -> Handler {
             (Constraint::Length(1)):
               Hyperlink::new("pdex://pokedex/national")
                 .label("National Pokedex")
-                .focused_style(Style::default().add_modifier(Modifier::BOLD))
                 .focused_delims((">", "<"))
                 .alignment(Alignment::Center),
             (Constraint::Length(1)):
               Hyperlink::new("pdex://pokedex/kanto")
                 .label("Kanto Pokedex")
-                .focused_style(Style::default().add_modifier(Modifier::BOLD))
                 .focused_delims((">", "<"))
                 .alignment(Alignment::Center),
             (Constraint::Length(1)):
               Hyperlink::new("pdex://pokedex/hoenn")
                 .label("Hoenn Pokedex")
-                .focused_style(Style::default().add_modifier(Modifier::BOLD))
                 .focused_delims((">", "<"))
                 .alignment(Alignment::Center),
             (Constraint::Length(1)):
               Hyperlink::new("pdex://pokedex/extended-sinnoh")
                 .label("Sinnoh Pokedex")
-                .focused_style(Style::default().add_modifier(Modifier::BOLD))
                 .focused_delims((">", "<"))
                 .alignment(Alignment::Center),
             (Constraint::Length(1)):
               Hyperlink::new("pdex://focus-test")
                 .label("Focus Test")
-                .focused_style(Style::default().add_modifier(Modifier::BOLD))
                 .focused_delims((">", "<"))
                 .alignment(Alignment::Center),
             (Constraint::Percentage(50)): Empty,

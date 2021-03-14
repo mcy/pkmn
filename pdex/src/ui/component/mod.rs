@@ -95,6 +95,23 @@ impl CommandBuffer {
   }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct StyleSheet {
+  pub focused: Style,
+  pub unfocused: Style,
+  pub selected: Style,
+}
+
+impl Default for StyleSheet {
+  fn default() -> Self {
+    StyleSheet {
+      focused: Style::default().fg(Color::White),
+      unfocused: Style::default().fg(Color::Gray),
+      selected: Style::default().add_modifier(Modifier::BOLD),
+    }
+  }
+}
+
 /// Arguments fot [`Component::process_event()`].
 pub struct EventArgs<'browser> {
   pub event: Event,
@@ -109,6 +126,7 @@ pub struct RenderArgs<'browser> {
   pub rect: Rect,
   pub output: &'browser mut Buffer,
   pub frame_number: usize,
+  pub style_sheet: StyleSheet,
 }
 
 mod box_clone {
@@ -225,8 +243,6 @@ impl Component for TestBox {
 pub struct Hyperlink {
   url: String,
   label: Option<String>, // TODO: Localize.
-  style: Style,
-  focused_style: Style,
   focused_delims: Option<(String, String)>,
   alignment: Alignment,
 }
@@ -236,8 +252,6 @@ impl Hyperlink {
     Self {
       url: url.to_string(),
       label: None,
-      style: Style::default(),
-      focused_style: Style::default(),
       focused_delims: None,
       alignment: Alignment::Left,
     }
@@ -245,16 +259,6 @@ impl Hyperlink {
 
   pub fn label(mut self, label: impl ToString) -> Self {
     self.label = Some(label.to_string());
-    self
-  }
-
-  pub fn style(mut self, style: Style) -> Self {
-    self.style = style;
-    self
-  }
-
-  pub fn focused_style(mut self, style: Style) -> Self {
-    self.focused_style = style;
     self
   }
 
@@ -296,7 +300,7 @@ impl Component for Hyperlink {
         .as_ref()
         .map(|(l, r)| (l.as_str(), r.as_str()))
         .unwrap_or_default();
-      let style = self.style.patch(self.focused_style);
+      let style = args.style_sheet.focused.patch(args.style_sheet.selected);
       Spans::from(vec![
         Span::styled(l, style),
         Span::styled(self.label.as_ref().unwrap_or(&self.url), style),
@@ -305,7 +309,7 @@ impl Component for Hyperlink {
     } else {
       Spans::from(vec![Span::styled(
         self.label.as_ref().unwrap_or(&self.url),
-        self.style,
+        args.style_sheet.unfocused,
       )])
     };
     Paragraph::new(text)
@@ -319,7 +323,8 @@ pub trait Listable {
   fn count(&mut self, dex: &Dex) -> Option<usize>;
   fn get_item(&mut self, index: usize, dex: &Dex) -> Option<Self::Item>;
   fn url_of(&self, item: &Self::Item) -> Option<String>;
-  fn format<'a>(&'a self, item: &'a Self::Item) -> Spans<'a>;
+  fn format<'a>(&'a self, item: &'a Self::Item, args: &RenderArgs)
+    -> Spans<'a>;
 }
 
 pub struct ListPositionUpdate<L> {
@@ -436,19 +441,34 @@ where
         *item = self.list.get_item(i + range_lo, args.dex);
       }
     }
+
+    let style = if args.is_focused {
+      args.style_sheet.focused
+    } else {
+      args.style_sheet.unfocused
+    };
+
     let list = &self.list;
     let list_items = self
       .items
       .iter()
       .map(|x| match x {
-        Some(x) => ListItem::new(list.format(x)),
-        None => ListItem::new(spinner_frame(args.frame_number)),
+        Some(x) => {
+          let mut spans = list.format(x, args);
+          for span in &mut spans.0 {
+            span.style = style.patch(span.style);
+          }
+          ListItem::new(spans)
+        }
+        None => {
+          ListItem::new(Span::styled(spinner_frame(args.frame_number), style))
+        }
       })
       .collect::<Vec<_>>();
 
     let _list = widgets::StatefulWidget::render(
       List::new(list_items)
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        .highlight_style(style.patch(args.style_sheet.selected))
         .highlight_symbol("➤ "),
       args.rect,
       args.output,
@@ -458,7 +478,7 @@ where
     let ratio = self.state.selected().unwrap_or(0) as f64
       / (self.items.len().saturating_sub(1)) as f64;
     ScrollBar::new(ratio)
-      .style(Style::default().fg(Color::White))
+      .style(style)
       .render(args.rect, args.output);
   }
 }
@@ -612,15 +632,23 @@ impl Component for Tabs {
   }
 
   fn render(&mut self, args: &mut RenderArgs) {
+    let style = if args.is_focused {
+      args.style_sheet.focused
+    } else {
+      args.style_sheet.unfocused
+    };
+
+    // What we're going for:
     //    ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
     //   ╱  Bonk ╱  Foo  ╲ Bar  ╲ Baz  ╲
     // ▔▔▔▔▔▔▔▔▔▔         ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-    let mut top = vec![Span::raw("  ")];
-    let mut middle = vec![Span::raw("  ")];
-    let mut bottom = vec![Span::raw("▔▔")];
+
+    let mut top = vec![Span::styled("  ", style)];
+    let mut middle = vec![Span::styled("  ", style)];
+    let mut bottom = vec![Span::styled("▔▔", style)];
     for (i, label) in self.tabs.iter().enumerate() {
       if i < self.selected {
-        let span = Span::raw(format!("╱  {} ", label));
+        let span = Span::styled(format!("╱  {} ", label), style);
         let width = span.width();
 
         let mut top_bar = if i == 0 { " " } else { "▁" }.to_string();
@@ -628,12 +656,14 @@ impl Component for Tabs {
           top_bar.push('▁');
         }
 
-        top.push(Span::raw(top_bar));
+        top.push(Span::styled(top_bar, style));
         middle.push(span);
-        bottom
-          .push(Span::raw(iter::repeat('▔').take(width).collect::<String>()));
+        bottom.push(Span::styled(
+          iter::repeat('▔').take(width).collect::<String>(),
+          style,
+        ));
       } else if i > self.selected {
-        let span = Span::raw(format!(" {}  ╲", label));
+        let span = Span::styled(format!(" {}  ╲", label), style);
         let width = span.width();
 
         let mut top_bar = iter::repeat('▁').take(width - 1).collect::<String>();
@@ -643,14 +673,16 @@ impl Component for Tabs {
           top_bar.push('▁');
         }
 
-        top.push(Span::raw(top_bar));
+        top.push(Span::styled(top_bar, style));
         middle.push(span);
-        bottom
-          .push(Span::raw(iter::repeat('▔').take(width).collect::<String>()));
+        bottom.push(Span::styled(
+          iter::repeat('▔').take(width).collect::<String>(),
+          style,
+        ));
       } else {
         let span = Span::styled(
           format!("╱  {}  ╲", label),
-          Style::default().add_modifier(Modifier::BOLD),
+          style.patch(args.style_sheet.selected),
         );
         let width = span.width();
 
@@ -666,12 +698,12 @@ impl Component for Tabs {
 
         top.push(Span::styled(
           top_bar,
-          Style::default().add_modifier(Modifier::BOLD),
+          style.patch(args.style_sheet.selected),
         ));
         middle.push(span);
         bottom.push(Span::styled(
           iter::repeat(' ').take(width).collect::<String>(),
-          Style::default().add_modifier(Modifier::BOLD),
+          style.patch(args.style_sheet.selected),
         ));
       }
     }
@@ -679,7 +711,7 @@ impl Component for Tabs {
     let tail = iter::repeat('▔')
       .take(args.rect.width as usize)
       .collect::<String>();
-    bottom.push(Span::raw(tail));
+    bottom.push(Span::styled(tail, style));
 
     Paragraph::new(Text::from(vec![
       Spans::from(top),

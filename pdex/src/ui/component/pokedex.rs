@@ -4,11 +4,11 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use pkmn::model::resource::Name;
 use pkmn::model::LanguageName;
 use pkmn::model::PokedexName;
 use pkmn::model::Pokemon;
 use pkmn::model::Species;
-use pkmn::model::resource::Name;
 
 use tui::style::Style;
 use tui::text::Spans;
@@ -127,12 +127,17 @@ impl Listable for Pokedex {
   }
 
   fn url_of(&self, item: &Self::Item) -> Option<String> {
-    Some(format!("pkmn://pokedex/{}/{}", self.0.to_str(), item.1.name.as_str()))
+    Some(format!(
+      "pkmn://pokedex/{}/{}",
+      self.0.to_str(),
+      item.1.name.as_str()
+    ))
   }
 
   fn format<'a>(
     &'a self,
     (num, species, pokemon): &'a Self::Item,
+    _: &RenderArgs,
   ) -> Spans<'a> {
     let name = species
       .localized_names
