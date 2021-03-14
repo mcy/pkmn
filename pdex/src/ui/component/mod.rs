@@ -2,6 +2,7 @@
 
 use std::any::Any;
 use std::fmt::Debug;
+use std::iter;
 use std::marker::PhantomData;
 use std::mem;
 
@@ -84,7 +85,7 @@ impl CommandBuffer {
   /// Claims the event being processed, so it will not be further propagated to
   /// other components.
   pub fn claim(&mut self) {
-    self.claimed = false
+    self.claimed = true
   }
 
   /// Returns whether a callee has already claimed the event associated with
@@ -562,5 +563,129 @@ impl Component for Png {
         .alignment(Alignment::Center)
         .render(args.rect, args.output);
     }
+  }
+}
+
+#[derive(Clone, Debug)]
+pub struct Tabs {
+  tabs: Vec<String>,
+  selected: usize,
+}
+
+impl Tabs {
+  pub fn new(labels: Vec<String>) -> Self {
+    Self {
+      tabs: labels,
+      selected: 0,
+    }
+  }
+}
+
+impl Component for Tabs {
+  fn wants_focus(&self) -> bool {
+    true
+  }
+
+  fn process_event(&mut self, args: &mut EventArgs) {
+    if let Event::Key(k) = args.event {
+      match k.code {
+        KeyCode::Left => {
+          let new_idx = self.selected.saturating_sub(1);
+          if new_idx != self.selected {
+            self.selected = new_idx;
+            args.commands.claim();
+          }
+        }
+        KeyCode::Right => {
+          let new_idx = self
+            .selected
+            .saturating_add(1)
+            .min(self.tabs.len().saturating_sub(1));
+          if new_idx != self.selected {
+            self.selected = new_idx;
+            args.commands.claim();
+          }
+        }
+        _ => {}
+      }
+    }
+  }
+
+  fn render(&mut self, args: &mut RenderArgs) {
+    //    ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+    //   ╱  Bonk ╱  Foo  ╲ Bar  ╲ Baz  ╲
+    // ▔▔▔▔▔▔▔▔▔▔         ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+    let mut top = vec![Span::raw("  ")];
+    let mut middle = vec![Span::raw("  ")];
+    let mut bottom = vec![Span::raw("▔▔")];
+    for (i, label) in self.tabs.iter().enumerate() {
+      if i < self.selected {
+        let span = Span::raw(format!("╱  {} ", label));
+        let width = span.width();
+
+        let mut top_bar = if i == 0 { " " } else { "▁" }.to_string();
+        for _ in 0..width - 1 {
+          top_bar.push('▁');
+        }
+
+        top.push(Span::raw(top_bar));
+        middle.push(span);
+        bottom
+          .push(Span::raw(iter::repeat('▔').take(width).collect::<String>()));
+      } else if i > self.selected {
+        let span = Span::raw(format!(" {}  ╲", label));
+        let width = span.width();
+
+        let mut top_bar = iter::repeat('▁').take(width - 1).collect::<String>();
+        if i + 1 == self.tabs.len() {
+          top_bar.push(' ');
+        } else {
+          top_bar.push('▁');
+        }
+
+        top.push(Span::raw(top_bar));
+        middle.push(span);
+        bottom
+          .push(Span::raw(iter::repeat('▔').take(width).collect::<String>()));
+      } else {
+        let span = Span::styled(
+          format!("╱  {}  ╲", label),
+          Style::default().add_modifier(Modifier::BOLD),
+        );
+        let width = span.width();
+
+        let mut top_bar = if i == 0 { " " } else { "▁" }.to_string();
+        for _ in 0..width - 2 {
+          top_bar.push('▁');
+        }
+        if i + 1 == self.tabs.len() {
+          top_bar.push(' ');
+        } else {
+          top_bar.push('▁');
+        }
+
+        top.push(Span::styled(
+          top_bar,
+          Style::default().add_modifier(Modifier::BOLD),
+        ));
+        middle.push(span);
+        bottom.push(Span::styled(
+          iter::repeat(' ').take(width).collect::<String>(),
+          Style::default().add_modifier(Modifier::BOLD),
+        ));
+      }
+    }
+
+    let tail = iter::repeat('▔')
+      .take(args.rect.width as usize)
+      .collect::<String>();
+    bottom.push(Span::raw(tail));
+
+    Paragraph::new(Text::from(vec![
+      Spans::from(top),
+      Spans::from(middle),
+      Spans::from(bottom),
+    ]))
+    .render(args.rect, args.output);
   }
 }

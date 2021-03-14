@@ -14,6 +14,7 @@ use crate::ui::component::pokedex::PokedexDetail;
 use crate::ui::component::Empty;
 use crate::ui::component::Hyperlink;
 use crate::ui::component::Listing;
+use crate::ui::component::Tabs;
 use crate::ui::component::TestBox;
 use crate::ui::navigation::Handler;
 
@@ -69,7 +70,14 @@ pub fn get() -> Handler {
         url.as_str().to_string(),
         node! {
           h: [
-            (Constraint::Min(0)): PokedexDetail::new(path[0].parse().ok()?),
+            v(Constraint::Min(0)): [
+              (Constraint::Length(3)): Tabs::new(vec![
+                ("Data".to_string()),
+                ("Moves".to_string()),
+                ("Evolution".to_string())
+              ]),
+              PokedexDetail::new(path[0].parse().ok()?),
+            ],
             (Constraint::Length(40)): Listing::new(Pokedex(path[0].parse().ok()?)),
           ]
         },
@@ -82,7 +90,14 @@ pub fn get() -> Handler {
         url.as_str().to_string(),
         node! {
           h: [
-            (Constraint::Min(0)): PokedexDetail::new(path[0].parse().ok()?),
+            v(Constraint::Min(0)): [
+              (Constraint::Length(3)): Tabs::new(vec![
+                ("Data".to_string()),
+                ("Moves".to_string()),
+                ("Evolution".to_string())
+              ]),
+              PokedexDetail::new(path[0].parse().ok()?),
+            ],
             (Constraint::Length(40)): Listing::new(Pokedex(path[0].parse().ok()?)),
           ]
         },

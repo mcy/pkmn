@@ -8,6 +8,7 @@ use pkmn::model::LanguageName;
 use pkmn::model::PokedexName;
 use pkmn::model::Pokemon;
 use pkmn::model::Species;
+use pkmn::model::resource::Name;
 
 use tui::style::Style;
 use tui::text::Spans;
@@ -21,6 +22,7 @@ use crate::ui::component::ListPositionUpdate;
 use crate::ui::component::Listable;
 use crate::ui::component::Png;
 use crate::ui::component::RenderArgs;
+use crate::ui::component::Tabs;
 
 #[derive(Clone, Debug)]
 pub struct PokedexDetail {
@@ -125,7 +127,7 @@ impl Listable for Pokedex {
   }
 
   fn url_of(&self, item: &Self::Item) -> Option<String> {
-    Some(format!("pkmn://species/{}", item.1.name.as_str()))
+    Some(format!("pkmn://pokedex/{}/{}", self.0.to_str(), item.1.name.as_str()))
   }
 
   fn format<'a>(
