@@ -44,12 +44,7 @@ pub enum Node {
 impl Node {
   fn render(&mut self, args: &mut RenderArgs) {
     match self {
-      Node::Leaf { component, .. } => match component.render(&mut RenderArgs {
-        is_focused: args.is_focused,
-        dex: args.dex,
-        rect: args.rect,
-        output: args.output,
-      }) {
+      Node::Leaf { component, .. } => match component.render(args) {
         Ok(()) => {}
         Err(e) => ProgressBar::new(&e)
           .style(Style::default().fg(Color::White))
@@ -105,6 +100,7 @@ impl Node {
             is_focused: args.is_focused && *focus_idx == Some(i),
             dex: args.dex,
             output: args.output,
+            frame_number: args.frame_number,
             rect,
           });
         }

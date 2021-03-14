@@ -107,6 +107,7 @@ pub struct RenderArgs<'browser> {
   pub dex: &'browser mut Dex,
   pub rect: Rect,
   pub output: &'browser mut Buffer,
+  pub frame_number: usize,
 }
 
 mod box_clone {
@@ -418,6 +419,16 @@ where
     &mut self,
     args: &mut RenderArgs,
   ) -> Result<(), Progress<api::Error>> {
+    fn spinner_frame(frame_number: usize) -> &'static str {
+      match frame_number / 5 % 4 {
+        0 => "-",
+        1 => "/",
+        2 => "|",
+        3 => "\\",
+        _ => "?",
+      }
+    }
+
     if self.items.is_empty() {
       match self.list.count(args.dex) {
         Some(len) => self.items = vec![None; len],
@@ -425,7 +436,7 @@ where
           args.output.set_string(
             args.rect.x,
             args.rect.y,
-            "Loading...",
+            spinner_frame(args.frame_number),
             Default::default(),
           );
           return Ok(());
@@ -451,7 +462,7 @@ where
       .iter()
       .map(|x| match x {
         Some(x) => ListItem::new(list.format(x)),
-        None => ListItem::new("Loading..."),
+        None => ListItem::new(spinner_frame(args.frame_number)),
       })
       .collect::<Vec<_>>();
 

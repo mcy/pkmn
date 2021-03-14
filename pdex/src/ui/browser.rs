@@ -27,6 +27,7 @@ pub struct Browser {
   windows: Vec<Window>,
   focused_idx: usize,
   url_handler: Handler,
+  frame_number: usize,
 }
 
 impl Browser {
@@ -38,6 +39,7 @@ impl Browser {
       windows: vec![Window::new(page)],
       focused_idx: 0,
       url_handler,
+      frame_number: 0,
     }
   }
 
@@ -177,6 +179,7 @@ impl Browser {
             dex: self.dex,
             output: buf,
             rect,
+            frame_number: self.b.frame_number,
           });
         }
       }
@@ -184,6 +187,7 @@ impl Browser {
 
     let size = f.size();
     f.render_widget(BrowserAsWidget { b: self, dex }, size);
+    self.frame_number += 1;
   }
 }
 
