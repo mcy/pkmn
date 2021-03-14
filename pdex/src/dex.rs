@@ -13,6 +13,7 @@ use std::thread;
 use dashmap::DashMap;
 
 use pkmn::api;
+use pkmn::api::Blob;
 use pkmn::api::Endpoint;
 use pkmn::model::resource::Name;
 use pkmn::model::resource::Named;
@@ -123,6 +124,10 @@ pub struct Dex {
   pub species: Resources<Species>,
   pub pokemon: Resources<Pokemon>,
   pub pokedexes: Resources<Pokedex>,
+
+  api: Arc<Api>,
+  error_sink: mpsc::Sender<api::Error>,
+  pngs: Arc<DashMap<String, Option<Arc<image::RgbaImage>>>>,
 }
 
 impl Dex {
@@ -131,6 +136,41 @@ impl Dex {
       species: Resources::new(Arc::clone(&api), error_sink.clone()),
       pokemon: Resources::new(Arc::clone(&api), error_sink.clone()),
       pokedexes: Resources::new(Arc::clone(&api), error_sink.clone()),
+
+      api,
+      error_sink,
+      pngs: Default::default(),
     }
+  }
+
+  pub fn load_png(&self, blob: &Blob) -> Option<Arc<image::RgbaImage>> {
+    // If an entry exists, that means we already spawned the task.
+    if let Some(val) = self.pngs.get(blob.url()) {
+      return val.clone();
+    }
+
+    let name = blob.url().to_string();
+    self.pngs.insert(name.clone(), None);
+
+    let api = Arc::clone(&self.api);
+    let table = Arc::clone(&self.pngs);
+    let error_sink = self.error_sink.clone();
+    let blob = blob.clone();
+    thread::spawn(move || match blob.load(&api) {
+      Ok(val) => {
+        match image::load_from_memory_with_format(&val, image::ImageFormat::Png)
+        {
+          Ok(image) => {
+            table.insert(name, Some(Arc::new(image.into_rgba8())));
+          }
+          Err(_) => todo!(),
+        }
+      }
+      Err(e) => {
+        let _ = error_sink.send(e);
+      }
+    });
+
+    None
   }
 }

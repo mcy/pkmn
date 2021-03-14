@@ -8,6 +8,7 @@ edition = "2018"
 crossbeam = "0.8.0"
 crossterm = "0.19.0"
 dashmap = "4.0.2"
+image = "0.23.14"
 pkmn = { path = ".." }
 single_value_channel = "1.2.2"
 tui = { version = "0.14.0", default_features = false, features = ["crossterm"] }

@@ -1,5 +1,6 @@
 //! Pokedex-related components.
 
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -18,12 +19,14 @@ use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::ListPositionUpdate;
 use crate::ui::component::Listable;
+use crate::ui::component::Png;
 use crate::ui::component::RenderArgs;
 
 #[derive(Clone, Debug)]
 pub struct PokedexDetail {
   pokedex: PokedexName,
   index: Option<usize>,
+  contents: HashMap<usize, Png>,
 }
 
 impl PokedexDetail {
@@ -31,6 +34,7 @@ impl PokedexDetail {
     Self {
       pokedex,
       index: Some(0),
+      contents: HashMap::new(),
     }
   }
 }
@@ -45,12 +49,44 @@ impl Component for PokedexDetail {
   }
 
   fn render(&mut self, args: &mut RenderArgs) {
-    args.output.set_string(
-      args.rect.x,
-      args.rect.y,
-      format!("index = {:?}", self.index),
-      Style::default(),
-    )
+    let number = match self.index {
+      Some(i) => i + 1,
+      None => return,
+    };
+
+    if let Some(png) = self.contents.get_mut(&number) {
+      png.render(args);
+      return;
+    }
+
+    let blob = (|| {
+      let pokedex = args.dex.pokedexes.get_named(self.pokedex)?;
+      let entry = pokedex
+        .entries
+        .iter()
+        .find(|e| e.number as usize == number)?;
+
+      let species = args.dex.species.get(entry.species.name()?)?;
+
+      let default = &species.varieties.iter().find(|v| v.is_default)?.pokemon;
+      let pokemon = args.dex.pokemon.get(default.name()?)?;
+
+      pokemon
+        .sprites
+        //.other
+        //.get("official-artwork")?
+        .defaults
+        .front_default
+        .clone()
+    })();
+
+    let blob = match blob {
+      Some(b) => b,
+      None => return,
+    };
+    let png = Png::new(blob);
+    self.contents.insert(number, png);
+    self.contents.get_mut(&number).unwrap().render(args);
   }
 
   fn wants_focus(&self) -> bool {
