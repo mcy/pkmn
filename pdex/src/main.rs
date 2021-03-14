@@ -65,7 +65,7 @@ fn real_main() -> Result<(), crossterm::ErrorKind> {
 
   loop {
     let now = Instant::now();
-    terminal.draw(|f| ui.render(&mut dex, f))?;
+    terminal.draw(|f| ui.render(&dex, f))?;
 
     while let Ok(k) = keys.try_recv() {
       let k = k?;
@@ -73,7 +73,7 @@ fn real_main() -> Result<(), crossterm::ErrorKind> {
         KeyCode::Char('c') if k.modifiers.contains(KeyModifiers::CONTROL) => {
           return Ok(())
         }
-        _ => ui.process_key(k, &mut dex),
+        _ => ui.process_key(k, &dex),
       }
     }
     if let Some(extra) =

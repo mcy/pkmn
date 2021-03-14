@@ -72,7 +72,7 @@ impl Browser {
   ///
   /// Some keys may be intercepted by the browser; for example, backspace will
   /// go back one step in history.
-  pub fn process_key(&mut self, k: KeyEvent, dex: &mut Dex) {
+  pub fn process_key(&mut self, k: KeyEvent, dex: &Dex) {
     // Keys that override normal event processing.
     let m = k.modifiers;
     match k.code {
@@ -144,11 +144,11 @@ impl Browser {
   }
 
   /// Renders the UI onto a `Frame` by recursively rendering every subcomponent.
-  pub fn render<B: Backend>(&mut self, dex: &mut Dex, f: &mut Frame<B>) {
+  pub fn render<B: Backend>(&mut self, dex: &Dex, f: &mut Frame<B>) {
     use tui::widgets::Widget;
     struct BrowserAsWidget<'a> {
       b: &'a mut Browser,
-      dex: &'a mut Dex,
+      dex: &'a Dex,
     }
     impl Widget for BrowserAsWidget<'_> {
       fn render(self, rect: Rect, buf: &mut tui::buffer::Buffer) {

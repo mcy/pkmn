@@ -45,17 +45,13 @@ impl Component for PokedexDetail {
     }
   }
 
-  fn render(
-    &mut self,
-    args: &mut RenderArgs,
-  ) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) {
     args.output.set_string(
       args.rect.x,
       args.rect.y,
       format!("index = {:?}", self.index),
       Style::default(),
-    );
-    Ok(())
+    )
   }
 
   fn wants_focus(&self) -> bool {
@@ -70,11 +66,11 @@ pub struct Pokedex(pub PokedexName);
 impl Listable for Pokedex {
   type Item = (u32, Arc<Species>, Arc<Pokemon>);
 
-  fn count(&mut self, dex: &mut Dex) -> Option<usize> {
+  fn count(&mut self, dex: &Dex) -> Option<usize> {
     Some(dex.pokedexes.get_named(self.0)?.entries.len())
   }
 
-  fn get_item(&mut self, index: usize, dex: &mut Dex) -> Option<Self::Item> {
+  fn get_item(&mut self, index: usize, dex: &Dex) -> Option<Self::Item> {
     // TODO: ummm this is quadratic. This should probably be a hashmap or vector
     // in `pkmn`.
     let number = index + 1;

@@ -97,14 +97,14 @@ impl CommandBuffer {
 /// Arguments fot [`Component::process_event()`].
 pub struct EventArgs<'browser> {
   pub event: Event,
-  pub dex: &'browser mut Dex,
+  pub dex: &'browser Dex,
   pub commands: &'browser mut CommandBuffer,
 }
 
 /// Arguments fot [`Component::render()`].
 pub struct RenderArgs<'browser> {
   pub is_focused: bool,
-  pub dex: &'browser mut Dex,
+  pub dex: &'browser Dex,
   pub rect: Rect,
   pub output: &'browser mut Buffer,
   pub frame_number: usize,
@@ -150,10 +150,7 @@ pub trait Component: box_clone::BoxClone + Debug {
   }
 
   /// Renders this component.
-  fn render(
-    &mut self,
-    args: &mut RenderArgs,
-  ) -> Result<(), Progress<api::Error>>;
+  fn render(&mut self, args: &mut RenderArgs);
 
   /// Returns whether this component should be given focus at all.
   fn wants_focus(&self) -> bool {
@@ -165,12 +162,8 @@ impl<W> Component for W
 where
   W: Widget + Clone + Debug + 'static,
 {
-  fn render(
-    &mut self,
-    args: &mut RenderArgs,
-  ) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) {
     self.clone().render(args.rect, args.output);
-    Ok(())
   }
 }
 
@@ -179,9 +172,7 @@ where
 #[derive(Clone, Debug)]
 pub struct Empty;
 impl Component for Empty {
-  fn render(&mut self, _: &mut RenderArgs) -> Result<(), Progress<api::Error>> {
-    Ok(())
-  }
+  fn render(&mut self, _: &mut RenderArgs) {}
 }
 
 /// A testing [`Component`] that fills its draw space with colored lines
@@ -200,10 +191,7 @@ impl TestBox {
   }
 }
 impl Component for TestBox {
-  fn render(
-    &mut self,
-    args: &mut RenderArgs,
-  ) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) {
     for dx in 1..args.rect.width.saturating_sub(1) {
       for dy in 1..args.rect.height.saturating_sub(1) {
         let x = args.rect.x + dx;
@@ -225,8 +213,6 @@ impl Component for TestBox {
         cell.set_fg(color);
       }
     }
-
-    Ok(())
   }
 
   fn wants_focus(&self) -> bool {
@@ -302,10 +288,7 @@ impl Component for Hyperlink {
     }
   }
 
-  fn render(
-    &mut self,
-    args: &mut RenderArgs,
-  ) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) {
     let text = if args.is_focused {
       let (l, r) = self
         .focused_delims
@@ -327,14 +310,13 @@ impl Component for Hyperlink {
     Paragraph::new(text)
       .alignment(self.alignment)
       .render(args.rect, args.output);
-    Ok(())
   }
 }
 
 pub trait Listable {
   type Item;
-  fn count(&mut self, dex: &mut Dex) -> Option<usize>;
-  fn get_item(&mut self, index: usize, dex: &mut Dex) -> Option<Self::Item>;
+  fn count(&mut self, dex: &Dex) -> Option<usize>;
+  fn get_item(&mut self, index: usize, dex: &Dex) -> Option<Self::Item>;
   fn url_of(&self, item: &Self::Item) -> Option<String>;
   fn format<'a>(&'a self, item: &'a Self::Item) -> Spans<'a>;
 }
@@ -415,10 +397,7 @@ where
     }
   }
 
-  fn render(
-    &mut self,
-    args: &mut RenderArgs,
-  ) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) {
     fn spinner_frame(frame_number: usize) -> &'static str {
       match frame_number / 5 % 4 {
         0 => "-",
@@ -439,7 +418,7 @@ where
             spinner_frame(args.frame_number),
             Default::default(),
           );
-          return Ok(());
+          return;
         }
       }
     }
@@ -480,8 +459,6 @@ where
     ScrollBar::new(ratio)
       .style(Style::default().fg(Color::White))
       .render(args.rect, args.output);
-
-    Ok(())
   }
 }
 

@@ -44,13 +44,7 @@ pub enum Node {
 impl Node {
   fn render(&mut self, args: &mut RenderArgs) {
     match self {
-      Node::Leaf { component, .. } => match component.render(args) {
-        Ok(()) => {}
-        Err(e) => ProgressBar::new(&e)
-          .style(Style::default().fg(Color::White))
-          .gauge_style(Style::default().bg(Color::Black))
-          .render(args.rect, args.output),
-      },
+      Node::Leaf { component, .. } => component.render(args),
       Node::Stack {
         nodes,
         direction,
@@ -256,10 +250,7 @@ impl Component for Page {
   }
 
   /// Renders the UI onto a frame.
-  fn render(
-    &mut self,
-    args: &mut RenderArgs,
-  ) -> Result<(), Progress<api::Error>> {
+  fn render(&mut self, args: &mut RenderArgs) {
     if !self.hide_chrome {
       let chrome = Chrome::new()
         .title(self.url.as_str())
@@ -274,6 +265,5 @@ impl Component for Page {
     }
 
     self.root.render(args);
-    Ok(())
   }
 }
