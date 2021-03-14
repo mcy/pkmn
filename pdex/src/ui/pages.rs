@@ -4,7 +4,6 @@ use pkmn::model::PokedexName;
 
 use tui::layout::Alignment;
 use tui::layout::Constraint;
-use tui::style::Color;
 use tui::style::Modifier;
 use tui::style::Style;
 use tui::widgets::Paragraph;
@@ -12,18 +11,11 @@ use tui::widgets::Paragraph;
 use crate::ui::component::page::Page;
 use crate::ui::component::pokedex::Pokedex;
 use crate::ui::component::pokedex::PokedexDetail;
-use crate::ui::component::CommandBuffer;
-use crate::ui::component::Component;
 use crate::ui::component::Empty;
-use crate::ui::component::Event;
-use crate::ui::component::EventArgs;
 use crate::ui::component::Hyperlink;
 use crate::ui::component::Listing;
-use crate::ui::component::RenderArgs;
 use crate::ui::component::TestBox;
 use crate::ui::navigation::Handler;
-use crate::ui::widgets::Chrome;
-use crate::ui::widgets::ProgressBar;
 
 pub fn get() -> Handler {
   Handler::new() //
@@ -84,8 +76,8 @@ pub fn get() -> Handler {
       ))
     })
     .handle("pdex://pokedex/{}/{}", |url, path, _| {
-      let pokedex = path[0].parse::<PokedexName>().ok()?;
-      let name = path[1];
+      let _pokedex = path[0].parse::<PokedexName>().ok()?;
+      let _name = path[1];
       Some(Page::new(
         url.as_str().to_string(),
         node! {

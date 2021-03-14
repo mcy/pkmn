@@ -5,8 +5,6 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
 
-use pkmn::api;
-
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
@@ -27,7 +25,6 @@ use tui::widgets::Paragraph;
 use tui::widgets::Widget;
 
 use crate::dex::Dex;
-use crate::download::Progress;
 use crate::ui::widgets::ScrollBar;
 
 #[macro_use]

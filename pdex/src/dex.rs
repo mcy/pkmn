@@ -3,7 +3,6 @@
 //! The [`Dex`] type contains listings of various resources from PokeAPI, which
 //! can be processed to display to a user.
 
-use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
@@ -18,13 +17,9 @@ use pkmn::api::Endpoint;
 use pkmn::model::resource::Name;
 use pkmn::model::resource::Named;
 use pkmn::model::Pokedex;
-use pkmn::model::PokedexName;
 use pkmn::model::Pokemon;
 use pkmn::model::Species;
 use pkmn::Api;
-
-use crate::download::Download;
-use crate::download::Progress;
 
 pub struct Resources<T> {
   api: Arc<Api>,

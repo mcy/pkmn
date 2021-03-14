@@ -38,7 +38,7 @@ pub struct Options {
 }
 
 /// An [`Api`] client error.
-/// 
+///
 /// See [`Error`].
 #[derive(Debug, thiserror::Error)]
 #[error("failed to GET `{url}`: {kind}")]
@@ -51,12 +51,15 @@ pub struct Error {
 
 impl Error {
   fn new(url: impl Into<String>, kind: impl Into<ErrorKind>) -> Self {
-    Self { url: url.into(), kind: kind.into() }
-   }
+    Self {
+      url: url.into(),
+      kind: kind.into(),
+    }
+  }
 }
 
 /// An [`Api`] client error kind.
-/// 
+///
 /// See [`Error`].
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
@@ -103,7 +106,12 @@ impl Api {
       |val| Ok(val.clone().into()),
       || {
         let mut buf = Vec::new();
-        client.get(url).send().map_err(|e| Error::new(url, e))?.read_to_end(&mut buf).map_err(|e| Error::new(url, e))?;
+        client
+          .get(url)
+          .send()
+          .map_err(|e| Error::new(url, e))?
+          .read_to_end(&mut buf)
+          .map_err(|e| Error::new(url, e))?;
         Ok(buf.into_boxed_slice())
       },
     )
@@ -117,11 +125,18 @@ impl Api {
     let client = &self.client;
     self.cache.get(
       url,
-      |buf| serde_json::from_reader(&mut &buf[..]).map_err(|e| Error::new(url, e)),
+      |buf| {
+        serde_json::from_reader(&mut &buf[..]).map_err(|e| Error::new(url, e))
+      },
       |val| serde_json::to_vec(val).map_err(|e| Error::new(url, e)),
       || {
         let mut buf = Vec::new();
-        client.get(url).send().map_err(|e| Error::new(url, e))?.read_to_end(&mut buf).map_err(|e| Error::new(url, e))?;
+        client
+          .get(url)
+          .send()
+          .map_err(|e| Error::new(url, e))?
+          .read_to_end(&mut buf)
+          .map_err(|e| Error::new(url, e))?;
         serde_json::from_reader(&mut &buf[..]).map_err(|e| Error::new(url, e))
       },
     )

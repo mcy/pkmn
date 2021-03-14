@@ -10,7 +10,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use crossterm::event::KeyCode;
-
 use crossterm::event::KeyModifiers;
 use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
@@ -39,7 +38,7 @@ fn real_main() -> Result<(), crossterm::ErrorKind> {
   let api = Arc::new(Api::with_cache(Cache::new(2048)));
 
   let (error_sink, errors) = mpsc::channel();
-  let mut dex = dex::Dex::new(Arc::clone(&api), error_sink);
+  let dex = dex::Dex::new(Arc::clone(&api), error_sink);
   thread::spawn(move || loop {
     if let Ok(val) = errors.recv() {
       // TODO: integrate this into the browser.

@@ -1,31 +1,22 @@
 //! Browseable pages.
 
 use crossterm::event::KeyCode;
-
 use crossterm::event::KeyModifiers;
-
-use pkmn::api;
-use pkmn::model::PokedexName;
 
 use tui::layout::Constraint;
 use tui::layout::Direction;
 use tui::layout::Layout;
-
 use tui::style::Color;
 use tui::style::Modifier;
 use tui::style::Style;
 use tui::widgets::Widget as _;
 
-use crate::download::Progress;
-use crate::ui::component::pokedex::Pokedex;
-use crate::ui::component::pokedex::PokedexDetail;
 use crate::ui::component::CommandBuffer;
 use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
 use crate::ui::widgets::Chrome;
-use crate::ui::widgets::ProgressBar;
 
 #[derive(Clone, Debug)]
 pub enum Node {

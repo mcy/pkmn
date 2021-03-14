@@ -3,7 +3,6 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use pkmn::api;
 use pkmn::model::LanguageName;
 use pkmn::model::PokedexName;
 use pkmn::model::Pokemon;
@@ -13,7 +12,7 @@ use tui::style::Style;
 use tui::text::Spans;
 
 use crate::dex::Dex;
-use crate::download::Progress;
+
 use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;

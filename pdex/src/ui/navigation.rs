@@ -14,7 +14,7 @@ pub struct Url<'url> {
 }
 
 impl<'url> Url<'url> {
-  pub fn from(mut url: &'url str) -> Option<Self> {
+  pub fn from(url: &'url str) -> Option<Self> {
     let str = url;
     let url = url.strip_prefix("pdex://")?;
 
