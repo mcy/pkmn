@@ -507,82 +507,104 @@ impl Component for Png {
       return;
     }
 
-    if let Some((rect, chars)) = &self.cache {
-      if rect.height == args.rect.height && rect.width == args.rect.width {
-        Paragraph::new(chars.clone())
-          .alignment(Alignment::Center)
-          .render(args.rect, args.output);
-        return;
-      }
-    }
-
-    if let Some(image) = args.dex.load_png(&self.blob) {
-      // NOTE: Wider rectangles have a smaller aspect ratio, while taller
-      // rectangles have a greater one.
-      let rect_aspect = args.rect.height as f64 / args.rect.width as f64;
-      let image_aspect = image.height() as f64 / image.width() as f64;
-
-      // If the draw rectangle is wider or shorter than the image, we scale
-      // according to the height ratio; otherwise, we use the width.
-      let scale_factor = if rect_aspect < image_aspect {
-        args.rect.height as f64 / image.height() as f64
-      } else {
-        args.rect.width as f64 / image.width() as f64
-      };
-
-      const FONT_HEIGHT: f64 = 2.1;
-
-      let width = (image.width() as f64 * scale_factor * FONT_HEIGHT) as u32;
-      let height = (image.height() as f64 * scale_factor) as u32;
-
-      // Recolor the transparent image parts to be black instead of white, so
-      // as to improve resizing.
-      let mut image = (&*image).clone();
-      for image::Rgba([r, g, b, a]) in image.pixels_mut() {
-        if *a == 0 {
-          *r = 0;
-          *g = 0;
-          *b = 0;
-        }
-      }
-
-      // We resize twice; once with nearest-neighbor and once with triangle
-      // interpolation. The NN version is only used for alpha masking.
-      let mask = image::imageops::resize(
-        &image,
-        width,
-        height,
-        image::imageops::FilterType::Nearest,
-      );
-      let mut resized = image::imageops::resize(
-        &image,
-        width,
-        height,
-        image::imageops::FilterType::Triangle,
-      );
-
-      for (image::Rgba([_, _, _, a]), image::Rgba([_, _, _, out])) in
-        mask.pixels().zip(resized.pixels_mut())
+    let text = match &self.cache {
+      Some((rect, chars))
+        if rect.height == args.rect.height && rect.width == args.rect.width =>
       {
-        *out = *a;
+        chars
       }
+      _ => match args.dex.load_png(&self.blob) {
+        None => return,
+        Some(image) => {
+          // NOTE: Wider rectangles have a smaller aspect ratio, while taller
+          // rectangles have a greater one.
+          const FONT_HEIGHT: f64 = 2.1;
+          dbg!(args.rect);
+          let rect_aspect = args.rect.height as f64 / args.rect.width as f64;
+          let image_aspect = image.height() as f64 / image.width() as f64;
 
-      // Now, we rasterize. For now we just do a very dumb thing.
-      let mut text = Text::default();
-      for row in resized.rows() {
-        let mut spans = Vec::new();
-        for &image::Rgba([r, g, b, a]) in row {
-          let s = if a != 0 { "@" } else { " " };
-          spans.push(Span::styled(s, Style::default().fg(Color::Rgb(r, g, b))));
+          // If the draw rectangle is wider or shorter than the image, we scale
+          // according to the height ratio; otherwise, we use the width.
+          let (width, height) = if rect_aspect * FONT_HEIGHT < image_aspect {
+            let scale_factor = args.rect.height as f64 / image.height() as f64;
+            
+            let width =
+              (image.width() as f64 * scale_factor * FONT_HEIGHT) as u32;
+            let height = (image.height() as f64 * scale_factor) as u32;
+            
+            (width, height)
+          } else {
+            let scale_factor = args.rect.width as f64 / image.width() as f64;
+            
+            let width = (image.width() as f64 * scale_factor) as u32;
+            let height =
+              (image.height() as f64 * scale_factor / FONT_HEIGHT) as u32;
+
+            (width, height)
+          };
+          dbg!((width, height));
+
+          // Recolor the transparent image parts to be black instead of white, so
+          // as to improve resizing.
+          let mut image = (&*image).clone();
+          for image::Rgba([r, g, b, a]) in image.pixels_mut() {
+            if *a == 0 {
+              *r = 0;
+              *g = 0;
+              *b = 0;
+            }
+          }
+
+          // We resize twice; once with nearest-neighbor and once with triangle
+          // interpolation. The NN version is only used for alpha masking.
+          let mask = image::imageops::resize(
+            &image,
+            width,
+            height,
+            image::imageops::FilterType::Nearest,
+          );
+          let mut resized = image::imageops::resize(
+            &image,
+            width,
+            height,
+            image::imageops::FilterType::Triangle,
+          );
+
+          for (image::Rgba([_, _, _, a]), image::Rgba([_, _, _, out])) in
+            mask.pixels().zip(resized.pixels_mut())
+          {
+            *out = *a;
+          }
+
+          // Now, we rasterize. For now we just do a very dumb thing.
+          let mut text = Text::default();
+          for row in resized.rows() {
+            let mut spans = Vec::new();
+            for &image::Rgba([r, g, b, a]) in row {
+              let s = if a != 0 { "@" } else { " " };
+              spans.push(Span::styled(
+                s,
+                Style::default().fg(Color::Rgb(r, g, b)),
+              ));
+            }
+            text.lines.push(Spans::from(spans));
+          }
+          self.cache = Some((args.rect, text));
+          &self.cache.as_ref().unwrap().1
         }
-        text.lines.push(Spans::from(spans));
-      }
-      self.cache = Some((args.rect, text.clone()));
+      },
+    };
 
-      Paragraph::new(text)
-        .alignment(Alignment::Center)
-        .render(args.rect, args.output);
-    }
+    let dy = args.rect.height.saturating_sub(text.lines.len() as u16) / 2;
+    let rect = Rect::new(
+      args.rect.x,
+      args.rect.y + dy,
+      args.rect.width,
+      text.lines.len() as u16,
+    );
+    Paragraph::new(text.clone())
+      .alignment(Alignment::Center)
+      .render(rect, args.output);
   }
 }
 
