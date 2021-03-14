@@ -25,9 +25,13 @@ pub struct Pokedex {
   /// Whether this Pokedex is actually used in main-series games.
   pub is_main_series: bool,
   /// The region this Pokedex indexes Pokemon for.
-  pub region: Resource<Region>,
+  pub region: Option<Resource<Region>>,
   /// Version groups associated with this Pokedex.
   pub version_groups: Vec<Resource<VersionGroup>>,
+
+  /// This Pokedex's entries.
+  #[serde(rename = "pokemon_entries")]
+  pub entries: Vec<Entry>,
 }
 
 well_known! {
@@ -79,10 +83,10 @@ well_known! {
 pub struct Entry {
   /// The number of this entry in the Pokedex (e.g., #001 for Bulbasaur).
   #[serde(rename = "entry_number")]
-  number: u32,
+  pub number: u32,
   /// The species this entry describes.
   #[serde(rename = "pokemon_species")]
-  species: Resource<Species>,
+  pub species: Resource<Species>,
 }
 
 impl Endpoint for Pokedex {

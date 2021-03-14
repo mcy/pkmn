@@ -91,6 +91,15 @@ impl<T: Endpoint + Named> NamedResource<T> {
   }
 }
 
+impl<T: Named> From<Resource<T>> for NamedResource<T> {
+  fn from(r: Resource<T>) -> Self {
+    Self {
+      name: r.name.unwrap_or_default().into(),
+      object: r.object,
+    }
+  }
+}
+
 /// A name for a [`NamedResource<T>`].
 ///
 /// `pkmn` is aware of the names of many well-known values of a particular
@@ -102,6 +111,15 @@ pub enum NameOf<T: Named> {
   Known(T::Variant),
   /// An unknown name.
   Unknown(String),
+}
+
+impl<T: Named> From<String> for NameOf<T> {
+  fn from(str: String) -> Self {
+    match str.parse() {
+      Ok(v) => Self::Known(v),
+      Err(_) => Self::Unknown(str),
+    }
+  }
 }
 
 /// A type with an API name.

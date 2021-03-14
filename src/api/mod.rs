@@ -12,6 +12,8 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::model::resource::Name;
+use crate::model::resource::Named;
 use crate::model::Resource;
 
 mod cache;
@@ -149,6 +151,14 @@ impl Api {
   /// Try to get the specific resource of type `T` with the given name.
   pub fn by_name<T: Endpoint>(&self, name: &str) -> Result<Arc<T>, Error> {
     self.request_json(&format!("{}/{}/{}", self.base_url, T::NAME, name))
+  }
+
+  /// Try to get the specific resource of type `T` with the given variant.
+  pub fn by_variant<T: Endpoint + Named>(
+    &self,
+    variant: T::Variant,
+  ) -> Result<Arc<T>, Error> {
+    self.by_name::<T>(variant.to_str())
   }
 }
 
