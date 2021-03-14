@@ -131,12 +131,11 @@ pub struct Dex {
 }
 
 impl Dex {
-  pub fn new(api: Arc<Api>) -> Self {
-    let (tx, _) = mpsc::channel(); // TODO: connect rx somewhere.
+  pub fn new(api: Arc<Api>, error_sink: mpsc::Sender<api::Error>) -> Self {
     Self {
-      species: Resources::new(Arc::clone(&api), tx.clone()),
-      pokemon: Resources::new(Arc::clone(&api), tx.clone()),
-      pokedexes: Resources::new(Arc::clone(&api), tx.clone()),
+      species: Resources::new(Arc::clone(&api), error_sink.clone()),
+      pokemon: Resources::new(Arc::clone(&api), error_sink.clone()),
+      pokedexes: Resources::new(Arc::clone(&api), error_sink.clone()),
     }
   }
 }

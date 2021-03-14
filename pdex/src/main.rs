@@ -38,7 +38,14 @@ fn main() -> Result<(), crossterm::ErrorKind> {
 fn real_main() -> Result<(), crossterm::ErrorKind> {
   let api = Arc::new(Api::with_cache(Cache::new(2048)));
 
-  let mut dex = dex::Dex::new(Arc::clone(&api));
+  let (error_sink, errors) = mpsc::channel();
+  let mut dex = dex::Dex::new(Arc::clone(&api), error_sink);
+  thread::spawn(move || loop {
+    if let Ok(val) = errors.recv() {
+      // TODO: integrate this into the browser.
+      eprintln!("{}", val);
+    }
+  });
 
   let mut ui = ui::browser::Browser::new();
 
