@@ -109,7 +109,7 @@ impl Cache {
     &self,
     k: &str,
     deserialize: impl FnOnce(Vec<u8>) -> Result<V, Error>,
-    serialize: impl FnOnce(&V) -> Result<Vec<u8>, Error> + 'static,
+    serialize: impl FnOnce(&V) -> Result<Vec<u8>, Error>,
     compute: impl FnOnce() -> Result<V, Error>,
   ) -> Result<Arc<V>, Error> {
     let mut inner = self.inner.lock().unwrap();
@@ -162,7 +162,7 @@ impl Cache {
 
     path.push(&Self::encode_key(k));
 
-    fs::write(&path, serialize(v)?)?;
+    fs::write(&path, serialize(v)?).map_err(|e| Error::new(k, e))?;
     Ok(())
   }
 
@@ -189,7 +189,7 @@ impl Cache {
       return Ok(None);
     }
 
-    let val = deserialize(fs::read(path)?)?;
+    let val = deserialize(fs::read(path).map_err(|e| Error::new(k, e))?)?;
     Ok(Some(Arc::new(val)))
   }
 
