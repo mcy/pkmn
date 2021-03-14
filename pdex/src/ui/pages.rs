@@ -1,5 +1,7 @@
 //! Definitions of all pages that `pdex` can display.
 
+use pkmn::model::PokedexName;
+
 use tui::layout::Alignment;
 use tui::layout::Constraint;
 use tui::style::Color;
@@ -71,6 +73,19 @@ pub fn get() -> Handler {
       ))
     })
     .handle("pdex://pokedex/{}", |url, path, _| {
+      Some(Page::new(
+        url.as_str().to_string(),
+        node! {
+          h: [
+            (Constraint::Min(0)): PokedexDetail::new(path[0].parse().ok()?),
+            (Constraint::Length(40)): Listing::new(Pokedex(path[0].parse().ok()?)),
+          ]
+        },
+      ))
+    })
+    .handle("pdex://pokedex/{}/{}", |url, path, _| {
+      let pokedex = path[0].parse::<PokedexName>().ok()?;
+      let name = path[1];
       Some(Page::new(
         url.as_str().to_string(),
         node! {

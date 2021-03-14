@@ -332,11 +332,9 @@ impl Component for Hyperlink {
 
 pub trait Listable {
   type Item;
-  fn from_dex(
-    &mut self,
-    dex: &mut Dex,
-  ) -> Result<Vec<Self::Item>, Progress<api::Error>>;
-  fn url_of(&self, item: &Self::Item) -> String;
+  fn count(&mut self, dex: &mut Dex) -> Option<usize>;
+  fn get_item(&mut self, index: usize, dex: &mut Dex) -> Option<Self::Item>;
+  fn url_of(&self, item: &Self::Item) -> Option<String>;
   fn format<'a>(&'a self, item: &'a Self::Item) -> Spans<'a>;
 }
 
@@ -348,7 +346,7 @@ pub struct ListPositionUpdate<L> {
 #[derive(Clone, Debug)]
 pub struct Listing<L: Listable> {
   list: L,
-  items: Option<Vec<L::Item>>,
+  items: Vec<Option<L::Item>>,
   state: ListState,
 }
 
@@ -356,13 +354,17 @@ impl<L: Listable> Listing<L> {
   pub fn new(list: L) -> Self {
     Self {
       list,
-      items: None,
+      items: Vec::new(),
       state: zero_list_state(),
     }
   }
 
   pub fn selected(&self) -> Option<&L::Item> {
-    self.items.as_ref()?.get(self.state.selected()?)
+    self
+      .items
+      .get(self.state.selected()?)
+      .map(Option::as_ref)
+      .flatten()
   }
 }
 
@@ -372,11 +374,11 @@ where
   L::Item: Clone + Debug,
 {
   fn wants_focus(&self) -> bool {
-    true
+    !self.items.is_empty()
   }
 
   fn process_event(&mut self, args: &mut EventArgs) {
-    if let (Event::Key(key), Some(items)) = (&args.event, &self.items) {
+    if let Event::Key(key) = &args.event {
       let m = key.modifiers;
       let delta: isize = match key.code {
         KeyCode::Up => -1,
@@ -386,8 +388,12 @@ where
 
         KeyCode::Enter => {
           let index = self.state.selected().unwrap_or(0);
-          args.commands.navigate_to(self.list.url_of(&items[index]));
-          args.commands.claim();
+          if let Some(Some(item)) = self.items.get(index) {
+            if let Some(url) = self.list.url_of(item) {
+              args.commands.navigate_to(url);
+              args.commands.claim();
+            }
+          }
           return;
         }
         _ => return,
@@ -395,7 +401,7 @@ where
 
       let index = self.state.selected().unwrap_or(0);
       let new_idx = ((index as isize).saturating_add(delta).max(0) as usize)
-        .min(items.len().saturating_sub(1));
+        .min(self.items.len().saturating_sub(1));
 
       if index != new_idx {
         self.state.select(Some(new_idx));
@@ -412,18 +418,41 @@ where
     &mut self,
     args: &mut RenderArgs,
   ) -> Result<(), Progress<api::Error>> {
-    let items = match &mut self.items {
-      Some(items) => items,
-      items => {
-        *items = Some(self.list.from_dex(args.dex)?);
-        items.as_mut().unwrap()
+    if self.items.is_empty() {
+      match self.list.count(args.dex) {
+        Some(len) => self.items = vec![None; len],
+        None => {
+          args.output.set_string(
+            args.rect.x,
+            args.rect.y,
+            "Loading...",
+            Default::default(),
+          );
+          return Ok(());
+        }
       }
-    };
+    }
 
+    let height = args.rect.height as usize;
+    let selected = self.state.selected().unwrap_or(0);
+    let range_lo = selected.saturating_sub(height);
+    let range_hi = selected
+      .saturating_add(height)
+      .min(self.items.len().saturating_sub(1));
+
+    for (i, item) in self.items[range_lo..=range_hi].iter_mut().enumerate() {
+      if item.is_none() {
+        *item = self.list.get_item(i + range_lo, args.dex);
+      }
+    }
     let list = &self.list;
-    let list_items = items
+    let list_items = self
+      .items
       .iter()
-      .map(|x| ListItem::new(list.format(x)))
+      .map(|x| match x {
+        Some(x) => ListItem::new(list.format(x)),
+        None => ListItem::new("Loading..."),
+      })
       .collect::<Vec<_>>();
 
     let _list = widgets::StatefulWidget::render(
@@ -436,7 +465,7 @@ where
     );
 
     let ratio = self.state.selected().unwrap_or(0) as f64
-      / (items.len().saturating_sub(1)) as f64;
+      / (self.items.len().saturating_sub(1)) as f64;
     ScrollBar::new(ratio)
       .style(Style::default().fg(Color::White))
       .render(args.rect, args.output);

@@ -69,38 +69,38 @@ pub struct Pokedex(pub PokedexName);
 
 impl Listable for Pokedex {
   type Item = (u32, Arc<Species>, Arc<Pokemon>);
-  fn from_dex(
-    &mut self,
-    dex: &mut Dex,
-  ) -> Result<Vec<Self::Item>, Progress<api::Error>> {
-    let pokemon = dex.pokemon.get()?;
-    let mut species = dex
-      .species
-      .get()?
+
+  fn count(&mut self, dex: &mut Dex) -> Option<usize> {
+    Some(dex.pokedexes.get_named(self.0)?.entries.len())
+  }
+
+  fn get_item(&mut self, index: usize, dex: &mut Dex) -> Option<Self::Item> {
+    // TODO: ummm this is quadratic. This should probably be a hashmap or vector
+    // in `pkmn`.
+    let number = index + 1;
+
+    let pokedex = dex.pokedexes.get_named(self.0)?;
+    let entry = pokedex
+      .entries
       .iter()
-      .filter_map(|(_, species)| {
-        let number = species
-          .pokedex_numbers
-          .iter()
-          .find(|n| n.pokedex.name().is(self.0))?
-          .number;
-        let default = &species.varieties.iter().find(|v| v.is_default)?.pokemon;
-        let pokemon = pokemon.get(default.name()?)?;
-        Some((number, species.clone(), pokemon.clone()))
-      })
-      .collect::<Vec<_>>();
+      .find(|e| e.number as usize == number)?;
 
-    species.sort_by_key(|&(number, ..)| number);
-    Ok(species)
+    let species = dex.species.get(entry.species.name()?)?;
+
+    let default = &species.varieties.iter().find(|v| v.is_default)?.pokemon;
+    let pokemon = dex.pokemon.get(default.name()?)?;
+
+    Some((entry.number, species, pokemon))
   }
 
-  fn url_of(&self, item: &Self::Item) -> String {
-    format!("pkmn://species/{}", item.1.name)
+  fn url_of(&self, item: &Self::Item) -> Option<String> {
+    Some(format!("pkmn://species/{}", item.1.name.as_str()))
   }
 
-  fn format<'a>(&'a self, item: &'a Self::Item) -> Spans<'a> {
-    let (num, species, pokemon) = item;
-
+  fn format<'a>(
+    &'a self,
+    (num, species, pokemon): &'a Self::Item,
+  ) -> Spans<'a> {
     let name = species
       .localized_names
       .get(LanguageName::English)

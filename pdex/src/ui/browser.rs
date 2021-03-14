@@ -15,10 +15,10 @@ use crate::dex::Dex;
 use crate::ui::component::page::Page;
 use crate::ui::component::CommandBuffer;
 use crate::ui::component::Component;
+use crate::ui::component::Empty;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
-use crate::ui::component::Empty;
 use crate::ui::navigation::Handler;
 use crate::ui::pages;
 
@@ -92,7 +92,9 @@ impl Browser {
 
     if let Some(url) = buf.take_url() {
       let page = self.url_handler.navigate_to(&url);
-      self.focused_window().navigate_to(page.unwrap_or_else(move || Page::new(url, node!(Empty))))
+      self
+        .focused_window()
+        .navigate_to(page.unwrap_or_else(move || Page::new(url, node!(Empty))))
     }
 
     if buf.is_claimed() {
@@ -118,9 +120,10 @@ impl Browser {
       KeyCode::Right => self.move_focus(1),
 
       // Spawn new window after the current one.
-      KeyCode::Char('n') => {
-        self.windows.insert(self.focused_idx + 1, Window::new(self.url_handler.navigate_to("pdex://main-menu").unwrap()))
-      }
+      KeyCode::Char('n') => self.windows.insert(
+        self.focused_idx + 1,
+        Window::new(self.url_handler.navigate_to("pdex://main-menu").unwrap()),
+      ),
       KeyCode::Char('N') => {
         let clone = self.focused_window().clone();
         self.windows.insert(self.focused_idx + 1, clone)

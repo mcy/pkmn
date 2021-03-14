@@ -6,6 +6,8 @@ use std::io;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
+use std::time::Instant;
 
 use crossterm::event::KeyCode;
 
@@ -55,6 +57,7 @@ fn real_main() -> Result<(), crossterm::ErrorKind> {
   let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
 
   loop {
+    let now = Instant::now();
     terminal.draw(|f| ui.render(&mut dex, f))?;
 
     while let Ok(k) = keys.try_recv() {
@@ -65,6 +68,11 @@ fn real_main() -> Result<(), crossterm::ErrorKind> {
         }
         _ => ui.process_key(k, &mut dex),
       }
+    }
+    if let Some(extra) =
+      Duration::from_secs_f32(1.0 / 60.0).checked_sub(now.elapsed())
+    {
+      thread::sleep(extra)
     }
   }
 }
