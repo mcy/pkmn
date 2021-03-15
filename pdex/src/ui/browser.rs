@@ -91,7 +91,8 @@ impl Browser {
       .focused_window()
       .current_page()
       .process_event(&mut EventArgs {
-        event: Event::Key(k),
+        is_focused: true,
+        event: &Event::Key(k),
         dex,
         commands: &mut buf,
       });

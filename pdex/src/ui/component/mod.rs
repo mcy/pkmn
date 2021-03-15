@@ -200,7 +200,8 @@ impl TypeColors {
 
 /// Arguments fot [`Component::process_event()`].
 pub struct EventArgs<'browser> {
-  pub event: Event,
+  pub is_focused: bool,
+  pub event: &'browser Event,
   pub dex: &'browser Dex,
   pub commands: &'browser mut CommandBuffer,
 }
@@ -268,6 +269,12 @@ pub trait Component: box_clone::BoxClone + Debug {
 
   /// Returns whether this component should be given focus at all.
   fn wants_focus(&self) -> bool {
+    false
+  }
+
+  /// Returns whether this component wants to see *all* events, even those that
+  /// specifically target another component.
+  fn wants_all_events(&self) -> bool {
     false
   }
 

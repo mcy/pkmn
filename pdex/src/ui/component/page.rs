@@ -124,6 +124,103 @@ pub enum Dir {
 }
 
 impl Node {
+  fn wants_all_events(&self) -> bool {
+    true
+  }
+
+  fn process_event(&mut self, args: &mut EventArgs) {
+    match self {
+      Node::Leaf { component, .. } => {
+        match args.event {
+          Event::Key(_)
+            if !component.wants_all_events() && !args.is_focused =>
+          {
+            return
+          }
+          _ => {}
+        }
+        component.process_event(args)
+      }
+      Node::Stack {
+        nodes,
+        focus_idx,
+        direction,
+        ..
+      } => {
+        for (i, node) in nodes.iter_mut().enumerate() {
+          let is_focused = args.is_focused && Some(i) == *focus_idx;
+          match args.event {
+            Event::Key(_) if !node.wants_all_events() && !is_focused => {
+              continue
+            }
+            _ => {}
+          }
+
+          // TODO: do not deliver key-presses to components which have zero
+          // width or height (this will also be needed for mouse support later)
+          // anyways.
+          node.process_event(&mut EventArgs {
+            is_focused,
+            event: args.event,
+            dex: args.dex,
+            commands: args.commands,
+          });
+          if args.commands.is_claimed() {
+            return;
+          }
+        }
+
+        if !args.is_focused {
+          return;
+        }
+
+        match args.event {
+          Event::Key(key) => {
+            use Dir::*;
+            use KeyCode::*;
+            let delta = match (direction, key.code) {
+              (Vertical, Up) => -1,
+              (Vertical, Down) => 1,
+              (Horizontal, Left) => -1,
+              (Horizontal, Right) => 1,
+
+              // TODO: use the correct keys depending on layout. We need to
+              // do layouts for events anyway so this is on the todo-list.
+              (Flexible, Left) => -1,
+              (Flexible, Right) => 1,
+              _ => return,
+            };
+
+            let old_val = focus_idx.unwrap_or(0);
+            let mut new_val = old_val as isize;
+            loop {
+              new_val += delta;
+              if new_val < 0 {
+                return;
+              }
+
+              match nodes.get(new_val as usize) {
+                Some(x) => match x {
+                  Node::Leaf { component, .. } if !component.wants_focus() => {
+                    continue
+                  }
+                  _ => break,
+                },
+                None => return,
+              }
+            }
+
+            if old_val != new_val as usize {
+              *focus_idx = Some(new_val as usize);
+              args.commands.claim();
+            }
+          }
+          _ => {}
+        }
+      }
+    }
+  }
+
   fn render(&mut self, args: &mut RenderArgs) {
     match self {
       Node::Leaf { component, .. } => component.render(args),
@@ -243,136 +340,22 @@ impl Component for Page {
     true
   }
 
+  fn wants_all_events(&self) -> bool {
+    true
+  }
+
   fn process_event(&mut self, args: &mut EventArgs) {
-    if args.commands.is_claimed() {
-      return;
-    }
+    if let Ok(root) = &mut self.root {
+      root.process_event(args);
 
-    // NOTE: This is wrapped in an inline lambda so that return statements
-    // work as a goto out of the big match block.
-    (|| {
-      match &args.event {
-        Event::Key(key) => {
-          let key = *key; // Explicitly end the lifetime of `key`.
-          let mut focus = match &mut self.root {
-            Ok(r) => r,
-            _ => return,
-          };
-          // NOTE: This is a raw pointer to prevent aliasing hazards.
-          let mut focus_stack = Vec::<*mut Node>::new();
-          let component = loop {
-            focus_stack.push(focus as *mut _);
-            match focus {
-              Node::Stack {
-                focus_idx: Some(i),
-                nodes,
-                ..
-              } => match nodes.get_mut(*i) {
-                Some(node) => focus = node,
-                None => break None,
-              },
-              Node::Leaf { component, .. } => break Some(component),
-              _ => break None,
-            }
-          };
-
-          // TODO: do not deliver key-presses to components which have zero
-          // width or height (this will also be needed for mouse support later)
-          // anyways.
-          if let Some(component) = component {
-            component.process_event(args);
-            if args.commands.is_claimed() {
-              return;
-            }
-          }
-
-          // For the purpose of moving focus, we ignore anything with modifiers,
-          // since those get taken by the layer above.
-          if key.modifiers != KeyModifiers::empty() {
-            return;
-          }
-
-          'outer: loop {
-            use Dir::*;
-            use KeyCode::*;
-
-            focus = match focus_stack.pop() {
-              Some(ptr) => unsafe { &mut *ptr },
-              None => break,
-            };
-
-            #[rustfmt::skip]
-            let (focus_idx, nodes, delta) = match (focus, key.code) {
-              (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Up) =>
-                (focus_idx, nodes, -1),
-              (Node::Stack { direction: Vertical, nodes, focus_idx, .. }, Down) =>
-                (focus_idx, nodes, 1),
-              (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Left) =>
-                (focus_idx, nodes, -1),
-              (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Right) =>
-                (focus_idx, nodes, 1),
-
-              // TODO: use the correct keys depending on layout. We need to
-              // do layouts for events anyway so this is on the todo-list.
-              (Node::Stack { direction: Flexible, nodes, focus_idx, .. }, Left) =>
-                (focus_idx, nodes, -1),
-              (Node::Stack { direction: Flexible, nodes, focus_idx, .. }, Right) =>
-                (focus_idx, nodes, 1),
-              _ => continue,
-            };
-
-            let old_val = focus_idx.unwrap_or(0);
-            let mut new_val = old_val as isize;
-            loop {
-              new_val += delta;
-              if new_val < 0 {
-                continue 'outer;
-              }
-
-              match nodes.get(new_val as usize) {
-                Some(x) => match x {
-                  Node::Leaf { component, .. } if !component.wants_focus() => {
-                    continue
-                  }
-                  _ => break,
-                },
-                None => continue 'outer,
-              }
-            }
-
-            if old_val != new_val as usize {
-              *focus_idx = Some(new_val as usize);
-              args.commands.claim();
-              break;
-            }
-          }
-        }
-        Event::Message(_) => {
-          fn propagate(node: &mut Node, args: &mut EventArgs) {
-            match node {
-              Node::Stack { nodes, .. } => {
-                for node in nodes {
-                  propagate(node, args);
-                }
-              }
-              Node::Leaf { component, .. } => component.process_event(args),
-            }
-          }
-          let root = match &mut self.root {
-            Ok(r) => r,
-            _ => return,
-          };
-          propagate(root, args);
-        }
+      for message in args.commands.claim_messages() {
+        root.process_event(&mut EventArgs {
+          is_focused: args.is_focused,
+          event: &Event::Message(message),
+          dex: args.dex,
+          commands: &mut CommandBuffer::new(),
+        })
       }
-    })();
-
-    for message in args.commands.claim_messages() {
-      self.process_event(&mut EventArgs {
-        event: Event::Message(message),
-        dex: args.dex,
-        commands: &mut CommandBuffer::new(),
-      })
     }
   }
 
