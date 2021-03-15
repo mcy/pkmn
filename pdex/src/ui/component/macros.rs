@@ -22,7 +22,7 @@ macro_rules! __node {
       let mut nodes = Vec::new();
       __node!(@nodes $($args)*);
       crate::ui::component::page::Node::Stack {
-        direction: tui::layout::Direction::Vertical,
+        direction: crate::ui::component::page::Dir::Vertical,
         size_constraint: None,
         focus_idx: None,
         nodes
@@ -35,7 +35,7 @@ macro_rules! __node {
       let mut nodes = Vec::new();
       __node!(@nodes $($args)*);
       crate::ui::component::page::Node::Stack {
-        direction: tui::layout::Direction::Vertical,
+        direction: crate::ui::component::page::Dir::Vertical,
         size_constraint: Some($constraint),
         focus_idx: None,
         nodes
@@ -48,7 +48,7 @@ macro_rules! __node {
       let mut nodes = Vec::new();
       __node!(@nodes $($args)*);
       crate::ui::component::page::Node::Stack {
-        direction: tui::layout::Direction::Horizontal,
+        direction: crate::ui::component::page::Dir::Horizontal,
         size_constraint: None,
         focus_idx: None,
         nodes
@@ -61,11 +61,52 @@ macro_rules! __node {
       let mut nodes = Vec::new();
       __node!(@nodes $($args)*);
       crate::ui::component::page::Node::Stack {
-        direction: tui::layout::Direction::Horizontal,
+        direction: crate::ui::component::page::Dir::Horizontal,
         size_constraint: Some($constraint),
         focus_idx: None,
         nodes
       }
+    });
+    $(__node!(@$nodes $($rest)*);)?
+  };
+
+  (@$nodes:ident f: [$($args:tt)*] $(, $($rest:tt)*)?) => {
+    $nodes.push({
+      let mut nodes = Vec::new();
+      __node!(@nodes $($args)*);
+      crate::ui::component::page::Node::Stack {
+        direction: crate::ui::component::page::Dir::Flexible,
+        size_constraint: None,
+        focus_idx: None,
+        nodes
+      }
+    });
+    $(__node!(@$nodes $($rest)*);)?
+  };
+  (@$nodes:ident f($constraint:expr): [$($args:tt)*] $(, $($rest:tt)*)?) => {
+    $nodes.push({
+      let mut nodes = Vec::new();
+      __node!(@nodes $($args)*);
+      crate::ui::component::page::Node::Stack {
+        direction: crate::ui::component::page::Dir::Flexible,
+        size_constraint: Some($constraint),
+        focus_idx: None,
+        nodes
+      }
+    });
+    $(__node!(@$nodes $($rest)*);)?
+  };
+  (@$nodes:ident ($constraint:expr): box $expr:expr $(, $($rest:tt)*)?) => {
+    $nodes.push(crate::ui::component::page::Node::Leaf {
+      size_constraint: Some($constraint),
+      component: $expr,
+    });
+    $(__node!(@$nodes $($rest)*);)?
+  };
+  (@$nodes:ident box $expr:expr $(, $($rest:tt)*)?) => {
+    $nodes.push(crate::ui::component::page::Node::Leaf {
+      size_constraint: None,
+      component: $expr,
     });
     $(__node!(@$nodes $($rest)*);)?
   };

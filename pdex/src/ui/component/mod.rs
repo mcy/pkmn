@@ -12,9 +12,12 @@ use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 
 use pkmn::api::Blob;
+use pkmn::model::TypeName;
 
 use tui::buffer::Buffer;
 use tui::layout::Alignment;
+use tui::layout::Constraint;
+use tui::layout::Direction;
 use tui::layout::Rect;
 use tui::style::Color;
 use tui::style::Modifier;
@@ -103,6 +106,7 @@ pub struct StyleSheet {
   pub focused: Style,
   pub unfocused: Style,
   pub selected: Style,
+  pub type_colors: TypeColors,
 }
 
 impl Default for StyleSheet {
@@ -111,6 +115,88 @@ impl Default for StyleSheet {
       focused: Style::default().fg(Color::White),
       unfocused: Style::default().fg(Color::Gray),
       selected: Style::default().add_modifier(Modifier::BOLD),
+      type_colors: TypeColors::default(),
+    }
+  }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct TypeColors {
+  pub normal: Color,
+  pub fighting: Color,
+  pub flying: Color,
+  pub poison: Color,
+  pub ground: Color,
+  pub rock: Color,
+  pub bug: Color,
+  pub ghost: Color,
+  pub steel: Color,
+  pub fire: Color,
+  pub water: Color,
+  pub grass: Color,
+  pub electric: Color,
+  pub psychic: Color,
+  pub ice: Color,
+  pub dragon: Color,
+  pub dark: Color,
+  pub fairy: Color,
+
+  pub unknown: Color,
+  pub shadow: Color,
+}
+
+impl Default for TypeColors {
+  fn default() -> Self {
+    // Colors pulled from Bulbapedia.
+    Self {
+      normal: Color::Rgb(0xa8, 0xa8, 0x78),
+      fighting: Color::Rgb(0xc0, 0x30, 0x28),
+      flying: Color::Rgb(0xa9, 0x90, 0xf0),
+      poison: Color::Rgb(0xa0, 0x40, 0xa0),
+      ground: Color::Rgb(0xe0, 0xc0, 0x68),
+      rock: Color::Rgb(0xb8, 0xa0, 0x38),
+      bug: Color::Rgb(0xa8, 0xb8, 0x20),
+      ghost: Color::Rgb(0x70, 0x58, 0x98),
+      steel: Color::Rgb(0xb8, 0xb8, 0xd0),
+      fire: Color::Rgb(0xf0, 0x80, 0x30),
+      water: Color::Rgb(0x68, 0x90, 0xf0),
+      grass: Color::Rgb(0x78, 0xc8, 0x50),
+      electric: Color::Rgb(0xf8, 0xd0, 0x30),
+      psychic: Color::Rgb(0xf8, 0x58, 0x88),
+      ice: Color::Rgb(0x98, 0xd8, 0xd8),
+      dragon: Color::Rgb(0x70, 0x38, 0xf8),
+      dark: Color::Rgb(0x70, 0x58, 0x48),
+      fairy: Color::Rgb(0xee, 0x99, 0xac),
+
+      unknown: Color::Rgb(0x68, 0xa0, 0x90),
+      shadow: Color::Rgb(0x60, 0x4e, 0x82),
+    }
+  }
+}
+
+impl TypeColors {
+  pub fn get(self, ty: TypeName) -> Color {
+    match ty {
+      TypeName::Normal => self.normal,
+      TypeName::Fighting => self.fighting,
+      TypeName::Flying => self.flying,
+      TypeName::Poison => self.poison,
+      TypeName::Ground => self.ground,
+      TypeName::Rock => self.rock,
+      TypeName::Bug => self.bug,
+      TypeName::Ghost => self.ghost,
+      TypeName::Steel => self.steel,
+      TypeName::Fire => self.fire,
+      TypeName::Water => self.water,
+      TypeName::Grass => self.grass,
+      TypeName::Electric => self.electric,
+      TypeName::Psychic => self.psychic,
+      TypeName::Ice => self.ice,
+      TypeName::Dragon => self.dragon,
+      TypeName::Dark => self.dark,
+      TypeName::Fairy => self.fairy,
+      TypeName::Unknown => self.unknown,
+      TypeName::Shadow => self.shadow,
     }
   }
 }
@@ -130,6 +216,14 @@ pub struct RenderArgs<'browser> {
   pub rect: Rect,
   pub output: &'browser mut Buffer,
   pub frame_number: usize,
+  pub style_sheet: StyleSheet,
+}
+
+pub struct LayoutHintArgs<'browser> {
+  pub is_focused: bool,
+  pub direction: Direction,
+  pub dex: &'browser Dex,
+  pub rect: Rect,
   pub style_sheet: StyleSheet,
 }
 
@@ -178,6 +272,11 @@ pub trait Component: box_clone::BoxClone + Debug {
   /// Returns whether this component should be given focus at all.
   fn wants_focus(&self) -> bool {
     false
+  }
+
+  /// Returns a hint to the layout solver.
+  fn layout_hint(&self, args: &LayoutHintArgs) -> Option<Constraint> {
+    None
   }
 }
 
@@ -577,7 +676,9 @@ impl Component for Png {
               let s = if a != 0 { "@" } else { " " };
               spans.push(Span::styled(
                 s,
-                Style::default().fg(Color::Rgb(r, g, b)),
+                Style::default()
+                  .fg(Color::Rgb(r, g, b))
+                  .add_modifier(Modifier::BOLD),
               ));
             }
             text.lines.push(Spans::from(spans));
@@ -605,6 +706,7 @@ impl Component for Png {
 pub struct Tabs {
   tabs: Vec<String>,
   selected: usize,
+  flavor_text: Spans<'static>,
 }
 
 impl Tabs {
@@ -612,7 +714,13 @@ impl Tabs {
     Self {
       tabs: labels,
       selected: 0,
+      flavor_text: Spans::default(),
     }
+  }
+
+  pub fn flavor_text(mut self, flavor_text: impl Into<Spans<'static>>) -> Self {
+    self.flavor_text = flavor_text.into();
+    self
   }
 }
 
@@ -722,11 +830,21 @@ impl Component for Tabs {
         ));
       }
     }
-
-    let tail = iter::repeat('▔')
-      .take(args.rect.width as usize)
-      .collect::<String>();
+    let rest_len = (args.rect.width as usize)
+      .saturating_sub(bottom.iter().map(|s| s.width()).sum());
+    let tail = iter::repeat('▔').take(rest_len).collect::<String>();
     bottom.push(Span::styled(tail, style));
+
+    let flavor_len = self.flavor_text.0.iter().map(|s| s.width()).sum();
+    let spacer = iter::repeat(' ')
+      .take(rest_len.saturating_sub(flavor_len).max(1))
+      .collect::<String>();
+    middle.push(Span::styled(spacer, style));
+
+    for mut span in self.flavor_text.0.iter().cloned() {
+      span.style = style.patch(span.style);
+      middle.push(span);
+    }
 
     Paragraph::new(Text::from(vec![
       Spans::from(top),

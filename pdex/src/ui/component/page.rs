@@ -17,6 +17,7 @@ use crate::ui::component::CommandBuffer;
 use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
+use crate::ui::component::LayoutHintArgs;
 use crate::ui::component::RenderArgs;
 use crate::ui::navigation::Handler;
 use crate::ui::navigation::Navigation;
@@ -26,7 +27,7 @@ use crate::ui::widgets::Spinner;
 #[derive(Clone, Debug)]
 pub enum Node {
   Stack {
-    direction: Direction,
+    direction: Dir,
     size_constraint: Option<Constraint>,
     nodes: Vec<Node>,
     focus_idx: Option<usize>,
@@ -35,6 +36,13 @@ pub enum Node {
     size_constraint: Option<Constraint>,
     component: Box<dyn Component>,
   },
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Dir {
+  Horizontal,
+  Vertical,
+  Flexible,
 }
 
 impl Node {
@@ -47,6 +55,15 @@ impl Node {
         focus_idx,
         ..
       } => {
+        let direction = match direction {
+          Dir::Horizontal => Direction::Horizontal,
+          Dir::Vertical => Direction::Vertical,
+          Dir::Flexible if args.rect.height > args.rect.width => {
+            Direction::Vertical
+          }
+          Dir::Flexible => Direction::Horizontal,
+        };
+
         let mut constraints = Vec::new();
         let len = nodes.len();
         for node in &mut *nodes {
@@ -59,6 +76,18 @@ impl Node {
               size_constraint: Some(c),
               ..
             } => *c,
+            Node::Leaf { component, .. } => {
+              match component.layout_hint(&LayoutHintArgs {
+                is_focused: args.is_focused,
+                direction: direction.clone(),
+                dex: args.dex,
+                rect: args.rect,
+                style_sheet: args.style_sheet,
+              }) {
+                Some(c) => c,
+                None => Constraint::Ratio(1, len as u32),
+              }
+            }
             _ => Constraint::Ratio(1, len as u32),
           });
         }
@@ -79,7 +108,7 @@ impl Node {
         }
 
         let layout = Layout::default()
-          .direction(direction.clone())
+          .direction(direction)
           .constraints(constraints)
           .split(args.rect);
 
@@ -186,7 +215,7 @@ impl Component for Page {
           }
 
           'outer: loop {
-            use Direction::*;
+            use Dir::*;
             use KeyCode::*;
 
             focus = match focus_stack.pop() {
@@ -203,6 +232,13 @@ impl Component for Page {
               (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Left) =>
                 (focus_idx, nodes, -1),
               (Node::Stack { direction: Horizontal, nodes, focus_idx, .. }, Right) =>
+                (focus_idx, nodes, 1),
+
+              // TODO: use the correct keys depending on layout. We need to
+              // do layouts for events anyway so this is on the todo-list.
+              (Node::Stack { direction: Flexible, nodes, focus_idx, .. }, Left) =>
+                (focus_idx, nodes, -1),
+              (Node::Stack { direction: Flexible, nodes, focus_idx, .. }, Right) =>
                 (focus_idx, nodes, 1),
               _ => continue,
             };

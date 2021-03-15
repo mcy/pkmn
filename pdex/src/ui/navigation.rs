@@ -32,11 +32,13 @@ impl<'url> Url<'url> {
     }
 
     let args = args
+      .strip_prefix("?")
+      .unwrap_or("")
       .split('&')
       .map(|kv| match kv.char_indices().find(|&(_, c)| c == '=') {
         Some((idx, _)) => {
           let (k, v) = kv.split_at(idx);
-          (k, Some(v))
+          (k, Some(v.strip_prefix("=").unwrap_or("")))
         }
         None => (kv, None),
       })

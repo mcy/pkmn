@@ -1,6 +1,9 @@
 //! Definitions of all pages that `pdex` can display.
 
+use pkmn::model::resource::Name;
+use pkmn::model::text::LanguageName;
 use pkmn::model::PokedexName;
+use pkmn::model::TypeName;
 
 use tui::layout::Alignment;
 use tui::layout::Constraint;
@@ -12,6 +15,8 @@ use crate::ui::component::page::Page;
 use crate::ui::component::pokedex::Pokedex;
 use crate::ui::component::pokedex::PokedexDetail;
 use crate::ui::component::pokedex::PokedexSprite;
+use crate::ui::component::pokedex::TypeLink;
+use crate::ui::component::Component;
 use crate::ui::component::Empty;
 use crate::ui::component::Hyperlink;
 use crate::ui::component::Listing;
@@ -65,9 +70,27 @@ pub fn get() -> Handler {
         (Constraint::Length(40)): Listing::new(Pokedex(path[0].parse().ok()?)),
       ]
     }))
-    .handle("pdex://pokemon/{}", |url, path, _, dex| {
+    .handle("pdex://pokemon/{}?pokedex", |url, path, args, dex| {
       let species = dex.species.get(path[0])?;
-      let default = species.varieties.iter().find(|v| v.is_default)?.pokemon.name()?.into();
+      let default = &species.varieties.iter().find(|v| v.is_default)?.pokemon;
+      let pokemon = dex.pokemon.get(default.name()?)?;
+
+      let pokedex = args.get("pokedex")
+        .copied()
+        .flatten()
+        .map(|x| x.parse().ok())
+        .unwrap_or(Some(PokedexName::National))?;
+      let number = species.pokedex_numbers.iter()
+        .find(|e| e.pokedex.name().is(pokedex))
+        .map(|e| e.number)
+        .unwrap_or(0);
+
+      let genus = species.genus.get(LanguageName::English).unwrap_or("???");
+
+      let mut types = pokemon.types.clone();
+      types.sort_by_key(|t| t.slot);
+      let first = types.get(0).map(|t| t.ty.variant()).flatten().unwrap_or(TypeName::Unknown);
+      let second = types.get(1).map(|t| t.ty.variant()).flatten();
 
       Some(node! {
         v(Constraint::Min(0)): [
@@ -75,8 +98,21 @@ pub fn get() -> Handler {
             ("Data".to_string()),
             ("Moves".to_string()),
             ("Evolution".to_string())
-          ]),
-          PokedexSprite::new(default),
+          ]).flavor_text(format!("{}  #{:03}  ", genus, number)),
+          f: [
+            PokedexSprite::new(default.name()?.into()),
+            v: [
+              h: [
+                TypeLink(first),
+                (Constraint::Length(2)): Empty,
+                box if let Some(second) = second {
+                  Box::new(TypeLink(second)) as Box<dyn Component>
+                } else {
+                  Box::new(Empty) as Box<dyn Component>
+                },
+              ]
+            ],
+          ],
         ],
       })
     })

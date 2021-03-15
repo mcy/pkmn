@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::iter;
 use std::sync::Arc;
 
 use pkmn::model::resource::Name;
@@ -9,9 +10,19 @@ use pkmn::model::LanguageName;
 use pkmn::model::PokedexName;
 use pkmn::model::Pokemon;
 use pkmn::model::Species;
+use pkmn::model::TypeName;
 
+use crossterm::event::KeyCode;
+
+use tui::layout::Constraint;
+use tui::layout::Direction;
+use tui::style::Color;
+use tui::style::Modifier;
 use tui::style::Style;
+use tui::text::Span;
 use tui::text::Spans;
+use tui::text::Text;
+use tui::widgets::Paragraph;
 
 use crate::dex::Dex;
 
@@ -19,11 +30,13 @@ use crate::ui::component::page::Page;
 use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
+use crate::ui::component::LayoutHintArgs;
 use crate::ui::component::ListPositionUpdate;
 use crate::ui::component::Listable;
 use crate::ui::component::Png;
 use crate::ui::component::RenderArgs;
 use crate::ui::component::Tabs;
+use crate::ui::widgets::Spinner;
 
 #[derive(Clone, Debug)]
 pub struct PokedexDetail {
@@ -73,7 +86,7 @@ impl Component for PokedexDetail {
     };
 
     let mut page = Page::request(
-      format!("pdex://pokemon/{}", name),
+      format!("pdex://pokemon/{}?pokedex={}", name, self.pokedex.to_str()),
       Arc::clone(args.url_handler),
     )
     .hide_chrome(true);
@@ -125,6 +138,110 @@ impl Component for PokedexSprite {
     let mut png = Png::new(blob);
     png.render(args);
     self.png = Some(png);
+  }
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeLink(pub TypeName);
+
+impl Component for TypeLink {
+  fn wants_focus(&self) -> bool {
+    true
+  }
+
+  fn process_event(&mut self, args: &mut EventArgs) {
+    if let Event::Key(key) = args.event {
+      match key.code {
+        KeyCode::Enter => {
+          args.commands.claim();
+          args
+            .commands
+            .navigate_to(format!("pdex://type/{}", self.0.to_str()));
+        }
+        _ => {}
+      }
+    }
+  }
+
+  fn render(&mut self, args: &mut RenderArgs) {
+    let color = args.style_sheet.type_colors.get(self.0);
+    let (style, chars) = if args.is_focused {
+      let style = args.style_sheet.unfocused.patch(args.style_sheet.focused).add_modifier(Modifier::BOLD);
+      let chars = ["━", "┃", "┏", "┓", "┗", "┛"];
+      (style, chars)
+    } else {
+      let style = args.style_sheet.unfocused;
+      let chars = ["─", "│", "┌", "┐", "└", "┘"];
+      (style, chars)
+    };
+    let style = style.fg(color);
+
+    let name = match args.dex.types.get_named(self.0) {
+      Some(x) => {
+        let name = x
+          .localized_names
+          .get(LanguageName::English)
+          .unwrap_or("???");
+        Span::styled(format!(" {} ", name.to_uppercase()), style)
+      }
+      None => Spinner::new(args.frame_number)
+        .style(style)
+        .into_spans()
+        .0[0]
+        .clone(),
+    };
+
+    let width = name.width();
+    let text = Text::from(vec![
+      Spans::from(vec![
+        Span::styled(chars[2], style),
+        Span::styled(iter::repeat(chars[0]).take(width).collect::<String>(), style),
+        Span::styled(chars[3], style),
+      ]),
+      Spans::from(vec![
+        Span::styled(chars[1], style),
+        name,
+        Span::styled(chars[1], style),
+      ]),
+      Spans::from(vec![
+        Span::styled(chars[4], style),
+        Span::styled(iter::repeat(chars[0]).take(width).collect::<String>(), style),
+        Span::styled(chars[5], style),
+      ]),
+    ]);
+
+    /*let left =
+      Span::styled(if args.is_focused { "<" } else { " " }, style.bg(color));
+    let right =
+      Span::styled(if args.is_focused { ">" } else { " " }, style.bg(color));
+
+    let top = iter::repeat('▄').take(name.width() + 2).collect::<String>();
+    let bottom = iter::repeat('▀').take(name.width() + 2).collect::<String>();
+    let text = Text::from(vec![
+      Spans::from(Span::styled(top, style.fg(color))),
+      Spans::from(vec![left, name, right]),
+      Spans::from(Span::styled(bottom, style.fg(color))),
+    ]);*/
+
+    Paragraph::new(text).render(args)
+  }
+
+  fn layout_hint(&self, args: &LayoutHintArgs) -> Option<Constraint> {
+    if args.direction == Direction::Vertical {
+      return Some(Constraint::Length(3));
+    }
+
+    let len = match args.dex.types.get_named(self.0) {
+      Some(x) => {
+        x.localized_names
+          .get(LanguageName::English)
+          .unwrap_or("???")
+          .len()
+          + 5
+      }
+      None => 3,
+    };
+    Some(Constraint::Length(len as u16))
   }
 }
 

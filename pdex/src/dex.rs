@@ -20,6 +20,7 @@ use pkmn::model::resource::Named;
 use pkmn::model::Pokedex;
 use pkmn::model::Pokemon;
 use pkmn::model::Species;
+use pkmn::model::Type;
 use pkmn::Api;
 
 pub struct Resources<T> {
@@ -124,6 +125,7 @@ pub struct Dex {
   pub species: Resources<Species>,
   pub pokemon: Resources<Pokemon>,
   pub pokedexes: Resources<Pokedex>,
+  pub types: Resources<Type>,
 
   api: Arc<Api>,
   error_sink: mpsc::Sender<api::Error>,
@@ -136,6 +138,7 @@ impl Dex {
       species: Resources::new(Arc::clone(&api), error_sink.clone()),
       pokemon: Resources::new(Arc::clone(&api), error_sink.clone()),
       pokedexes: Resources::new(Arc::clone(&api), error_sink.clone()),
+      types: Resources::new(Arc::clone(&api), error_sink.clone()),
 
       api,
       error_sink,

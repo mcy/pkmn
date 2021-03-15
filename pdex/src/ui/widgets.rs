@@ -19,6 +19,7 @@ use crate::download::Progress;
 ///
 /// This widget will render a notification box in the middle of its draw area
 /// describing progress so far in downloading some resource.
+#[derive(Clone, Debug)]
 pub struct ProgressBar<'a, E> {
   progress: &'a Progress<E>,
   style: Style,
@@ -106,6 +107,7 @@ impl<E: std::error::Error> Widget for ProgressBar<'_, E> {
 }
 
 /// A spinner for indicating that something is doing... something.
+#[derive(Clone, Debug)]
 pub struct Spinner<'a> {
   frame_number: usize,
   label: Option<Spans<'a>>,
@@ -166,6 +168,7 @@ impl Widget for Spinner<'_> {
 ///
 /// A `Chrome` can include a title, a footer, and each can be set as "focused"
 /// independently.
+#[derive(Clone, Debug)]
 pub struct Chrome<'a> {
   title: Option<Spans<'a>>,
   footer: Option<Spans<'a>>,
@@ -311,6 +314,7 @@ impl Widget for Chrome<'_> {
 }
 
 /// A scrollbar indicating how far down a list the user has scrolled.
+#[derive(Clone, Debug)]
 pub struct ScrollBar {
   ratio: f64,
   style: Style,

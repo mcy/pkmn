@@ -11,7 +11,6 @@ use crate::model::resource::NamedResource;
 use crate::model::resource::Resource;
 use crate::model::species::Pokemon;
 use crate::model::text::Localized;
-use crate::model::version::GameId;
 use crate::model::version::Generation;
 
 /// A Pokemon type.
@@ -27,13 +26,14 @@ pub struct Type {
 
   /// The generation this type was introduced in.
   pub generation: Resource<Generation>,
-  /// The internal game ids for this type.
+  /*/// The internal game ids for this type.
   #[serde(rename = "game_indices")]
-  pub game_ids: Vec<GameId>,
-
+  pub game_ids: Vec<GameId>,*/
   /// The damage class this type inflicted prior to Generation IV.
+  ///
+  /// Some types, like Fairy, have no damage class.
   #[serde(rename = "move_damage_class")]
-  pub damage_class: Resource<DamageClass>,
+  pub damage_class: Option<Resource<DamageClass>>,
 
   /// Pokemon which have this type.
   #[serde(rename = "pokemon")]
@@ -79,7 +79,7 @@ pub struct Member {
   /// Which of the two type slots this type occupies for this Pokemon.
   pub slot: u8,
   /// The Pokemon that has this type.
-  pub pokemon: Pokemon,
+  pub pokemon: Resource<Pokemon>,
 }
 
 /// How a particular type is related to other types on the type chart.
@@ -96,13 +96,13 @@ pub struct Relations {
   pub super_effective: Vec<NamedResource<Type>>,
 
   /// Move types this type is immune to (0x damage).
-  #[serde(rename = "no_damage_to")]
+  #[serde(rename = "no_damage_from")]
   pub immune_to: Vec<NamedResource<Type>>,
   /// Move types this type resists (0.5x damage).
-  #[serde(rename = "no_damage_to")]
+  #[serde(rename = "half_damage_from")]
   pub resists: Vec<NamedResource<Type>>,
   /// Move types this type is weak to (2x damage).
-  #[serde(rename = "no_damage_to")]
+  #[serde(rename = "double_damage_from")]
   pub weak_to: Vec<NamedResource<Type>>,
 }
 
