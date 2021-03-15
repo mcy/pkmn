@@ -11,6 +11,8 @@ use tui::style::Modifier;
 use tui::style::Style;
 use tui::widgets::Paragraph;
 
+use crate::ui::component::page::Dir;
+use crate::ui::component::page::Node;
 use crate::ui::component::page::Page;
 use crate::ui::component::pokedex::Pokedex;
 use crate::ui::component::pokedex::PokedexDetail;
@@ -26,61 +28,80 @@ use crate::ui::navigation::Handler;
 
 pub fn get() -> Handler {
   Handler::new() //
-    .handle("pdex://main-menu", |url, _, _, _| Some(node! {
-      v: [
-        (Constraint::Percentage(40)): Empty,
-        (Constraint::Length(1)):
-          Paragraph::new(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
-            .alignment(Alignment::Center),
-        (Constraint::Length(1)): Empty,
-        (Constraint::Length(1)):
-          Hyperlink::new("pdex://pokedex/national")
-            .label("National Pokedex")
-            .focused_delims((">", "<"))
-            .alignment(Alignment::Center),
-        (Constraint::Length(1)):
-          Hyperlink::new("pdex://pokedex/kanto")
-            .label("Kanto Pokedex")
-            .focused_delims((">", "<"))
-            .alignment(Alignment::Center),
-        (Constraint::Length(1)):
-          Hyperlink::new("pdex://pokedex/hoenn")
-            .label("Hoenn Pokedex")
-            .focused_delims((">", "<"))
-            .alignment(Alignment::Center),
-        (Constraint::Length(1)):
-          Hyperlink::new("pdex://pokedex/extended-sinnoh")
-            .label("Sinnoh Pokedex")
-            .focused_delims((">", "<"))
-            .alignment(Alignment::Center),
-        (Constraint::Length(1)):
-          Hyperlink::new("pdex://focus-test")
-            .label("Focus Test")
-            .focused_delims((">", "<"))
-            .alignment(Alignment::Center),
-        (Constraint::Percentage(50)): Empty,
-      ]
-    }))
-    .handle("pdex://pokedex/{}?n", |url, path, args, _| Some(node! {
-      h: [
-        (Constraint::Min(0)): PokedexDetail::new(
-          path[0].parse().ok()?,
-          args.get("n").map(|s| s.unwrap_or("").parse().ok()).unwrap_or(Some(1))?,
-        ),
-        (Constraint::Length(40)): Listing::new(Pokedex(path[0].parse().ok()?)),
-      ]
-    }))
+    .handle("pdex://main-menu", |url, _, _, _| {
+      Node::new(Dir::Vertical, |n| {
+        n.add_constrained(Constraint::Percentage(40), Empty)?
+          .add_constrained(
+            Constraint::Length(1),
+            Paragraph::new(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
+              .alignment(Alignment::Center),
+          )?
+          .add_constrained(Constraint::Length(1), Empty)?
+          .add(
+            Hyperlink::new("pdex://pokedex/national")
+              .label("National Pokedex")
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          )?
+          .add(
+            Hyperlink::new("pdex://pokedex/kanto")
+              .label("Kanto Pokedex")
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          )?
+          .add(
+            Hyperlink::new("pdex://pokedex/hoenn")
+              .label("Hoenn Pokedex")
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          )?
+          .add(
+            Hyperlink::new("pdex://pokedex/extended-sinnoh")
+              .label("Sinnoh Pokedex")
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          )?
+          .add(
+            Hyperlink::new("pdex://focus-test")
+              .label("Focus Test")
+              .focused_delims((">", "<"))
+              .alignment(Alignment::Center),
+          )?
+          .add_constrained(Constraint::Percentage(50), Empty)
+      })
+    })
+    .handle("pdex://pokedex/{}?n", |url, path, args, _| {
+      Node::new(Dir::Horizontal, |n| {
+        n.add_constrained(
+          Constraint::Min(0),
+          PokedexDetail::new(
+            path[0].parse().ok()?,
+            args
+              .get("n")
+              .map(|s| s.unwrap_or("").parse().ok())
+              .unwrap_or(Some(1))?,
+          ),
+        )?
+        .add_constrained(
+          Constraint::Length(40),
+          Listing::new(Pokedex(path[0].parse().ok()?)),
+        )
+      })
+    })
     .handle("pdex://pokemon/{}?pokedex", |url, path, args, dex| {
       let species = dex.species.get(path[0])?;
       let default = &species.varieties.iter().find(|v| v.is_default)?.pokemon;
       let pokemon = dex.pokemon.get(default.name()?)?;
 
-      let pokedex = args.get("pokedex")
+      let pokedex = args
+        .get("pokedex")
         .copied()
         .flatten()
         .map(|x| x.parse().ok())
         .unwrap_or(Some(PokedexName::National))?;
-      let number = species.pokedex_numbers.iter()
+      let number = species
+        .pokedex_numbers
+        .iter()
         .find(|e| e.pokedex.name().is(pokedex))
         .map(|e| e.number)
         .unwrap_or(0);
@@ -89,47 +110,55 @@ pub fn get() -> Handler {
 
       let mut types = pokemon.types.clone();
       types.sort_by_key(|t| t.slot);
-      let first = types.get(0).map(|t| t.ty.variant()).flatten().unwrap_or(TypeName::Unknown);
+      let first = types
+        .get(0)
+        .map(|t| t.ty.variant())
+        .flatten()
+        .unwrap_or(TypeName::Unknown);
       let second = types.get(1).map(|t| t.ty.variant()).flatten();
 
-      Some(node! {
-        v(Constraint::Min(0)): [
-          (Constraint::Length(3)): Tabs::new(vec![
+      Node::new(Dir::Vertical, |n| {
+        n.add_constrained(
+          Constraint::Length(3),
+          Tabs::new(vec![
             ("Data".to_string()),
             ("Moves".to_string()),
-            ("Evolution".to_string())
-          ]).flavor_text(format!("{}  #{:03}  ", genus, number)),
-          f: [
-            PokedexSprite::new(default.name()?.into()),
-            v: [
-              h: [
-                TypeLink(first),
-                (Constraint::Length(2)): Empty,
-                box if let Some(second) = second {
-                  Box::new(TypeLink(second)) as Box<dyn Component>
-                } else {
-                  Box::new(Empty) as Box<dyn Component>
-                },
-              ]
-            ],
-          ],
-        ],
+            ("Evolution".to_string()),
+          ])
+          .flavor_text(format!("{}  #{:03}  ", genus, number)),
+        )?
+        .stack(Dir::Flexible, |n| {
+          n.add(PokedexSprite::new(default.name()?.into()))?.stack(
+            Dir::Vertical,
+            |n| {
+              n.stack(Dir::Horizontal, |n| {
+                let mut n = n.add(TypeLink(first));
+                if let Some(second) = second {
+                  n = n?
+                    .add_constrained(Constraint::Length(2), Empty)?
+                    .add(TypeLink(second))
+                }
+                n
+              })
+            },
+          )
+        })
       })
     })
-    .handle("pdex://focus-test", |url, _, _, _| Some(node! {
-      v: [
-        TestBox::new(),
-        TestBox::new(),
-        h: [
-          TestBox::unfocusable(),
-          v: [
-            TestBox::unfocusable(),
-            TestBox::new(),
-            TestBox::new(),
-          ],
-          TestBox::new(),
-        ],
-        TestBox::new(),
-      ],
-    }))
+    .handle("pdex://focus-test", |url, _, _, _| {
+      Node::new(Dir::Vertical, |n| {
+        n.add(TestBox::new())?
+          .add(TestBox::new())?
+          .stack(Dir::Horizontal, |n| {
+            n.add(TestBox::unfocusable())?
+              .stack(Dir::Vertical, |n| {
+                n.add(TestBox::unfocusable())?
+                  .add(TestBox::new())?
+                  .add(TestBox::new())
+              })?
+              .add(TestBox::new())
+          })?
+          .add(TestBox::new())
+      })
+    })
 }

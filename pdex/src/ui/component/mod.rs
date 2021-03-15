@@ -37,9 +37,6 @@ use crate::ui::navigation::Handler;
 use crate::ui::widgets::ScrollBar;
 use crate::ui::widgets::Spinner;
 
-#[macro_use]
-pub mod macros;
-
 pub mod page;
 pub mod pokedex;
 
@@ -418,6 +415,14 @@ impl Component for Hyperlink {
     Paragraph::new(text)
       .alignment(self.alignment)
       .render(args.rect, args.output);
+  }
+
+  /// Returns a hint to the layout solver.
+  fn layout_hint(&self, args: &LayoutHintArgs) -> Option<Constraint> {
+    match args.direction {
+      Direction::Vertical => Some(Constraint::Length(1)),
+      _ => None,
+    }
   }
 }
 

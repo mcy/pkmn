@@ -166,7 +166,11 @@ impl Component for TypeLink {
   fn render(&mut self, args: &mut RenderArgs) {
     let color = args.style_sheet.type_colors.get(self.0);
     let (style, chars) = if args.is_focused {
-      let style = args.style_sheet.unfocused.patch(args.style_sheet.focused).add_modifier(Modifier::BOLD);
+      let style = args
+        .style_sheet
+        .unfocused
+        .patch(args.style_sheet.focused)
+        .add_modifier(Modifier::BOLD);
       let chars = ["━", "┃", "┏", "┓", "┗", "┛"];
       (style, chars)
     } else {
@@ -184,18 +188,19 @@ impl Component for TypeLink {
           .unwrap_or("???");
         Span::styled(format!(" {} ", name.to_uppercase()), style)
       }
-      None => Spinner::new(args.frame_number)
-        .style(style)
-        .into_spans()
-        .0[0]
-        .clone(),
+      None => {
+        Spinner::new(args.frame_number).style(style).into_spans().0[0].clone()
+      }
     };
 
     let width = name.width();
     let text = Text::from(vec![
       Spans::from(vec![
         Span::styled(chars[2], style),
-        Span::styled(iter::repeat(chars[0]).take(width).collect::<String>(), style),
+        Span::styled(
+          iter::repeat(chars[0]).take(width).collect::<String>(),
+          style,
+        ),
         Span::styled(chars[3], style),
       ]),
       Spans::from(vec![
@@ -205,7 +210,10 @@ impl Component for TypeLink {
       ]),
       Spans::from(vec![
         Span::styled(chars[4], style),
-        Span::styled(iter::repeat(chars[0]).take(width).collect::<String>(), style),
+        Span::styled(
+          iter::repeat(chars[0]).take(width).collect::<String>(),
+          style,
+        ),
         Span::styled(chars[5], style),
       ]),
     ]);

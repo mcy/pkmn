@@ -38,6 +38,84 @@ pub enum Node {
   },
 }
 
+impl Node {
+  pub fn new(
+    direction: Dir,
+    body: impl FnOnce(NodeBuilder) -> Option<NodeBuilder>,
+  ) -> Option<Self> {
+    body(NodeBuilder::new(direction)).map(Into::into)
+  }
+}
+
+pub struct NodeBuilder {
+  direction: Dir,
+  size_constraint: Option<Constraint>,
+  nodes: Vec<Node>,
+  focus_idx: Option<usize>,
+}
+
+impl NodeBuilder {
+  fn new(direction: Dir) -> Self {
+    Self {
+      direction,
+      size_constraint: None,
+      nodes: Vec::new(),
+      focus_idx: None,
+    }
+  }
+
+  pub fn constrain(mut self, constraint: Constraint) -> Option<Self> {
+    self.size_constraint = Some(constraint);
+    Some(self)
+  }
+
+  pub fn default_focus(mut self, focus_idx: usize) -> Option<Self> {
+    debug_assert!(focus_idx <= self.nodes.len());
+    self.focus_idx = Some(focus_idx);
+    Some(self)
+  }
+
+  pub fn add(mut self, component: impl Component + 'static) -> Option<Self> {
+    self.nodes.push(Node::Leaf {
+      size_constraint: None,
+      component: Box::new(component),
+    });
+    Some(self)
+  }
+
+  pub fn add_constrained(
+    mut self,
+    constraint: Constraint,
+    component: impl Component + 'static,
+  ) -> Option<Self> {
+    self.nodes.push(Node::Leaf {
+      size_constraint: Some(constraint),
+      component: Box::new(component),
+    });
+    Some(self)
+  }
+
+  pub fn stack(
+    mut self,
+    direction: Dir,
+    body: impl FnOnce(Self) -> Option<Self>,
+  ) -> Option<Self> {
+    self.nodes.push(Node::new(direction, body)?);
+    Some(self)
+  }
+}
+
+impl From<NodeBuilder> for Node {
+  fn from(b: NodeBuilder) -> Self {
+    Self::Stack {
+      direction: b.direction,
+      size_constraint: b.size_constraint,
+      nodes: b.nodes,
+      focus_idx: b.focus_idx,
+    }
+  }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum Dir {
   Horizontal,
