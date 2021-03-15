@@ -15,6 +15,7 @@ use tui::text::Spans;
 
 use crate::dex::Dex;
 
+use crate::ui::component::page::Page;
 use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
@@ -27,15 +28,15 @@ use crate::ui::component::Tabs;
 #[derive(Clone, Debug)]
 pub struct PokedexDetail {
   pokedex: PokedexName,
-  index: Option<usize>,
-  contents: HashMap<usize, Png>,
+  number: u32,
+  contents: HashMap<u32, Page>,
 }
 
 impl PokedexDetail {
-  pub fn new(pokedex: PokedexName) -> Self {
+  pub fn new(pokedex: PokedexName, number: u32) -> Self {
     Self {
       pokedex,
-      index: Some(0),
+      number,
       contents: HashMap::new(),
     }
   }
@@ -45,33 +46,67 @@ impl Component for PokedexDetail {
   fn process_event(&mut self, args: &mut EventArgs) {
     if let Event::Message(m) = &args.event {
       if let Some(update) = m.downcast_ref::<ListPositionUpdate<Pokedex>>() {
-        self.index = Some(update.index);
+        self.number = update.index as u32 + 1;
       }
+    }
+
+    if let Some(page) = self.contents.get_mut(&self.number) {
+      page.process_event(args)
     }
   }
 
   fn render(&mut self, args: &mut RenderArgs) {
-    let number = match self.index {
-      Some(i) => i + 1,
+    if let Some(page) = self.contents.get_mut(&self.number) {
+      page.render(args);
+      return;
+    }
+
+    let name = (|| {
+      let pokedex = args.dex.pokedexes.get_named(self.pokedex)?;
+      let entry = pokedex.entries.iter().find(|e| e.number == self.number)?;
+      entry.species.name().map(String::from)
+    })();
+
+    let name = match name {
+      Some(n) => n,
       None => return,
     };
 
-    if let Some(png) = self.contents.get_mut(&number) {
+    let mut page = Page::request(
+      format!("pdex://pokemon/{}", name),
+      Arc::clone(args.url_handler),
+    )
+    .hide_chrome(true);
+    page.render(args);
+    self.contents.insert(self.number, page);
+  }
+
+  fn wants_focus(&self) -> bool {
+    true
+  }
+}
+
+#[derive(Clone, Debug)]
+pub struct PokedexSprite {
+  name: String,
+  png: Option<Png>,
+}
+
+impl PokedexSprite {
+  pub fn new(name: String) -> Self {
+    Self { name, png: None }
+  }
+}
+
+impl Component for PokedexSprite {
+  fn render(&mut self, args: &mut RenderArgs) {
+    if let Some(png) = &mut self.png {
       png.render(args);
       return;
     }
 
     let blob = (|| {
-      let pokedex = args.dex.pokedexes.get_named(self.pokedex)?;
-      let entry = pokedex
-        .entries
-        .iter()
-        .find(|e| e.number as usize == number)?;
-
-      let species = args.dex.species.get(entry.species.name()?)?;
-
-      let default = &species.varieties.iter().find(|v| v.is_default)?.pokemon;
-      let pokemon = args.dex.pokemon.get(default.name()?)?;
+      let pokemon = args.dex.pokemon.get(&self.name)?;
 
       pokemon
         .sprites
@@ -86,13 +121,10 @@ impl Component for PokedexDetail {
       Some(b) => b,
       None => return,
     };
-    let png = Png::new(blob);
-    self.contents.insert(number, png);
-    self.contents.get_mut(&number).unwrap().render(args);
-  }
 
-  fn wants_focus(&self) -> bool {
-    true
+    let mut png = Png::new(blob);
+    png.render(args);
+    self.png = Some(png);
   }
 }
 
@@ -127,11 +159,7 @@ impl Listable for Pokedex {
   }
 
   fn url_of(&self, item: &Self::Item) -> Option<String> {
-    Some(format!(
-      "pkmn://pokedex/{}/{}",
-      self.0.to_str(),
-      item.1.name.as_str()
-    ))
+    None
   }
 
   fn format<'a>(

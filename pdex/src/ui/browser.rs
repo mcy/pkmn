@@ -1,5 +1,7 @@
 //! The root UI type.
 
+use std::sync::Arc;
+
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
@@ -27,15 +29,16 @@ use crate::ui::pages;
 pub struct Browser {
   windows: Vec<Window>,
   focused_idx: usize,
-  url_handler: Handler,
+  url_handler: Arc<Handler>,
   frame_number: usize,
 }
 
 impl Browser {
   /// Creates a brand new browser with default settings.
   pub fn new() -> Self {
-    let url_handler = pages::get();
-    let page = url_handler.navigate_to("pdex://main-menu").unwrap();
+    let url_handler = Arc::new(pages::get());
+    let page =
+      Page::request("pdex://main-menu".into(), Arc::clone(&url_handler));
     Self {
       windows: vec![Window::new(page)],
       focused_idx: 0,
@@ -94,10 +97,8 @@ impl Browser {
       });
 
     if let Some(url) = buf.take_url() {
-      let page = self.url_handler.navigate_to(&url);
-      self
-        .focused_window()
-        .navigate_to(page.unwrap_or_else(move || Page::new(url, node!(Empty))))
+      let h = Arc::clone(&self.url_handler);
+      self.focused_window().navigate_to(Page::request(url, h))
     }
 
     if buf.is_claimed() {
@@ -125,7 +126,10 @@ impl Browser {
       // Spawn new window after the current one.
       KeyCode::Char('n') => self.windows.insert(
         self.focused_idx + 1,
-        Window::new(self.url_handler.navigate_to("pdex://main-menu").unwrap()),
+        Window::new(Page::request(
+          "pdex://main-menu".into(),
+          Arc::clone(&self.url_handler),
+        )),
       ),
       KeyCode::Char('N') => {
         let clone = self.focused_window().clone();
@@ -177,6 +181,7 @@ impl Browser {
         {
           let _ = w.current_page().render(&mut RenderArgs {
             is_focused: i == self.b.focused_idx,
+            url_handler: &self.b.url_handler,
             dex: self.dex,
             output: buf,
             rect,

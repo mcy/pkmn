@@ -2,8 +2,10 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt;
 
-use crate::ui::component::page::Page;
+use crate::dex::Dex;
+use crate::ui::component::page::Node;
 
 /// A `pdex`-scheme URL, which is a subset of an HTTP URL, but without an
 /// origin.
@@ -80,6 +82,18 @@ pub struct Handler {
   matchers: Vec<Matcher>,
 }
 
+pub enum Navigation {
+  Ok(Node),
+  Pending,
+  NotFound,
+}
+
+impl fmt::Debug for Handler {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "Handler {{ .. }}")
+  }
+}
+
 impl Handler {
   pub fn new() -> Self {
     Self {
@@ -90,7 +104,7 @@ impl Handler {
   pub fn handle(
     mut self,
     template: &str,
-    factory: impl Fn(Url, Vec<&str>, HashMap<&str, Option<&str>>) -> Option<Page>
+    factory: impl Fn(Url, Vec<&str>, HashMap<&str, Option<&str>>, &Dex) -> Option<Node>
       + 'static,
   ) -> Self {
     let url = Url::from(template).unwrap();
@@ -100,7 +114,6 @@ impl Handler {
         .iter()
         .map(|&path| match path {
           "{}" => PathComponent::Required,
-          "{?}" => PathComponent::Optional,
           path => PathComponent::Exact(path.to_string()),
         })
         .collect(),
@@ -110,44 +123,39 @@ impl Handler {
     self
   }
 
-  pub fn navigate_to(&self, url: &str) -> Option<Page> {
-    let url = Url::from(url)?;
+  pub fn navigate_to(&self, url: &str, dex: &Dex) -> Navigation {
+    let url = match Url::from(url) {
+      Some(u) => u,
+      None => return Navigation::NotFound,
+    };
     'outer: for m in &self.matchers {
-      let mut idx = 0;
       let mut path = Vec::new();
-      for (i, template) in m.path.iter().enumerate() {
-        let component = url.path().get(i);
-        match (template, component) {
-          (PathComponent::Exact(this), Some(&that)) if this == that => idx += 1,
-          (PathComponent::Required, Some(&that)) => {
-            path.push(that);
-            idx += 1;
-          }
-          (PathComponent::Optional, Some(&that)) => {
-            path.push(that);
-            idx += 1;
-          }
-          (PathComponent::Optional, None) => idx += 1,
+      for (i, component) in url.path().iter().enumerate() {
+        match (m.path.get(i), component) {
+          (Some(PathComponent::Exact(this)), &that) if this == that => {}
+          (Some(PathComponent::Required), &that) => path.push(that),
           _ => continue 'outer,
         }
       }
       let args = url.args().filter(|(k, _)| m.args.contains(*k)).collect();
-      return (m.factory)(url, path, args);
+      return (m.factory)(url, path, args, dex)
+        .map(Navigation::Ok)
+        .unwrap_or(Navigation::Pending);
     }
 
-    None
+    Navigation::NotFound
   }
 }
 
 struct Matcher {
   path: Vec<PathComponent>,
   args: HashSet<String>,
-  factory:
-    Box<dyn Fn(Url, Vec<&str>, HashMap<&str, Option<&str>>) -> Option<Page>>,
+  factory: Box<
+    dyn Fn(Url, Vec<&str>, HashMap<&str, Option<&str>>, &Dex) -> Option<Node>,
+  >,
 }
 
 enum PathComponent {
   Exact(String),
   Required,
-  Optional,
 }

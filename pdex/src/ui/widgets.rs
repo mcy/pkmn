@@ -105,6 +105,63 @@ impl<E: std::error::Error> Widget for ProgressBar<'_, E> {
   }
 }
 
+/// A spinner for indicating that something is doing... something.
+pub struct Spinner<'a> {
+  frame_number: usize,
+  label: Option<Spans<'a>>,
+  style: Style,
+  frequency: usize,
+}
+
+impl<'a> Spinner<'a> {
+  pub fn new(frame_number: usize) -> Self {
+    Self {
+      frame_number,
+      label: None,
+      style: Style::default(),
+      frequency: 5,
+    }
+  }
+
+  pub fn label(mut self, label: impl Into<Spans<'a>>) -> Self {
+    self.label = Some(label.into());
+    self
+  }
+
+  pub fn style(mut self, style: Style) -> Self {
+    self.style = style;
+    self
+  }
+
+  pub fn into_spans(self) -> Spans<'a> {
+    let icon = match self.frame_number / self.frequency % 4 {
+      0 => "-",
+      1 => "/",
+      2 => "|",
+      3 => "\\",
+      _ => "?",
+    };
+
+    let mut spans = self.label.unwrap_or(Spans::default());
+    for span in &mut spans.0 {
+      span.style = self.style.patch(span.style);
+    }
+
+    if !spans.0.iter().all(|s| s.content.is_empty()) {
+      spans.0.push(Span::styled(" ", self.style));
+    }
+    spans.0.push(Span::styled(icon, self.style));
+
+    spans
+  }
+}
+
+impl Widget for Spinner<'_> {
+  fn render(self, rect: Rect, buf: &mut Buffer) {
+    buf.set_spans(rect.x, rect.y, &self.into_spans(), rect.width);
+  }
+}
+
 /// A frame that wraps around a rectangle with a `pdex`-specific style.
 ///
 /// A `Chrome` can include a title, a footer, and each can be set as "focused"

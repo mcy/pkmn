@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use std::iter;
 use std::marker::PhantomData;
 use std::mem;
+use std::sync::Arc;
 
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
@@ -29,7 +30,9 @@ use tui::widgets::Paragraph;
 use tui::widgets::Widget;
 
 use crate::dex::Dex;
+use crate::ui::navigation::Handler;
 use crate::ui::widgets::ScrollBar;
+use crate::ui::widgets::Spinner;
 
 #[macro_use]
 pub mod macros;
@@ -123,6 +126,7 @@ pub struct EventArgs<'browser> {
 pub struct RenderArgs<'browser> {
   pub is_focused: bool,
   pub dex: &'browser Dex,
+  pub url_handler: &'browser Arc<Handler>,
   pub rect: Rect,
   pub output: &'browser mut Buffer,
   pub frame_number: usize,
@@ -404,26 +408,20 @@ where
   }
 
   fn render(&mut self, args: &mut RenderArgs) {
-    fn spinner_frame(frame_number: usize) -> &'static str {
-      match frame_number / 5 % 4 {
-        0 => "-",
-        1 => "/",
-        2 => "|",
-        3 => "\\",
-        _ => "?",
-      }
-    }
+    let style = if args.is_focused {
+      args.style_sheet.focused
+    } else {
+      args.style_sheet.unfocused
+    };
 
     if self.items.is_empty() {
       match self.list.count(args.dex) {
         Some(len) => self.items = vec![None; len],
         None => {
-          args.output.set_string(
-            args.rect.x,
-            args.rect.y,
-            spinner_frame(args.frame_number),
-            Default::default(),
-          );
+          Spinner::new(args.frame_number)
+            .style(style)
+            .label("Loading...")
+            .render(args.rect, args.output);
           return;
         }
       }
@@ -442,12 +440,6 @@ where
       }
     }
 
-    let style = if args.is_focused {
-      args.style_sheet.focused
-    } else {
-      args.style_sheet.unfocused
-    };
-
     let list = &self.list;
     let list_items = self
       .items
@@ -460,9 +452,12 @@ where
           }
           ListItem::new(spans)
         }
-        None => {
-          ListItem::new(Span::styled(spinner_frame(args.frame_number), style))
-        }
+        None => ListItem::new(
+          Spinner::new(args.frame_number)
+            .style(style)
+            .label("Loading...")
+            .into_spans(),
+        ),
       })
       .collect::<Vec<_>>();
 
@@ -519,7 +514,6 @@ impl Component for Png {
           // NOTE: Wider rectangles have a smaller aspect ratio, while taller
           // rectangles have a greater one.
           const FONT_HEIGHT: f64 = 2.1;
-          dbg!(args.rect);
           let rect_aspect = args.rect.height as f64 / args.rect.width as f64;
           let image_aspect = image.height() as f64 / image.width() as f64;
 
@@ -527,22 +521,21 @@ impl Component for Png {
           // according to the height ratio; otherwise, we use the width.
           let (width, height) = if rect_aspect * FONT_HEIGHT < image_aspect {
             let scale_factor = args.rect.height as f64 / image.height() as f64;
-            
+
             let width =
               (image.width() as f64 * scale_factor * FONT_HEIGHT) as u32;
             let height = (image.height() as f64 * scale_factor) as u32;
-            
+
             (width, height)
           } else {
             let scale_factor = args.rect.width as f64 / image.width() as f64;
-            
+
             let width = (image.width() as f64 * scale_factor) as u32;
             let height =
               (image.height() as f64 * scale_factor / FONT_HEIGHT) as u32;
 
             (width, height)
           };
-          dbg!((width, height));
 
           // Recolor the transparent image parts to be black instead of white, so
           // as to improve resizing.

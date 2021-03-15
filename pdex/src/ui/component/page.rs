@@ -1,5 +1,7 @@
 //! Browseable pages.
 
+use std::sync::Arc;
+
 use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
 
@@ -16,7 +18,10 @@ use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
+use crate::ui::navigation::Handler;
+use crate::ui::navigation::Navigation;
 use crate::ui::widgets::Chrome;
+use crate::ui::widgets::Spinner;
 
 #[derive(Clone, Debug)]
 pub enum Node {
@@ -84,6 +89,7 @@ impl Node {
           node.render(&mut RenderArgs {
             is_focused: args.is_focused && *focus_idx == Some(i),
             dex: args.dex,
+            url_handler: args.url_handler,
             output: args.output,
             frame_number: args.frame_number,
             style_sheet: args.style_sheet,
@@ -97,7 +103,7 @@ impl Node {
 
 #[derive(Clone, Debug)]
 pub struct Page {
-  root: Node,
+  root: Result<Node, Arc<Handler>>,
   url: String,
   hide_chrome: bool,
 }
@@ -106,7 +112,15 @@ impl Page {
   pub fn new(url: String, root: Node) -> Self {
     Self {
       url,
-      root,
+      root: Ok(root),
+      hide_chrome: false,
+    }
+  }
+
+  pub fn request(url: String, handler: Arc<Handler>) -> Self {
+    Self {
+      url,
+      root: Err(handler),
       hide_chrome: false,
     }
   }
@@ -133,7 +147,10 @@ impl Component for Page {
       match &args.event {
         Event::Key(key) => {
           let key = *key; // Explicitly end the lifetime of `key`.
-          let mut focus = &mut self.root;
+          let mut focus = match &mut self.root {
+            Ok(r) => r,
+            _ => return,
+          };
           // NOTE: This is a raw pointer to prevent aliasing hazards.
           let mut focus_stack = Vec::<*mut Node>::new();
           let component = loop {
@@ -227,7 +244,11 @@ impl Component for Page {
               Node::Leaf { component, .. } => component.process_event(args),
             }
           }
-          propagate(&mut self.root, args);
+          let root = match &mut self.root {
+            Ok(r) => r,
+            _ => return,
+          };
+          propagate(root, args);
         }
       }
     })();
@@ -262,6 +283,30 @@ impl Component for Page {
       chrome.render(rect, args.output);
     }
 
-    self.root.render(args);
+    let style = if args.is_focused {
+      args.style_sheet.focused
+    } else {
+      args.style_sheet.selected
+    };
+
+    match &mut self.root {
+      Ok(node) => node.render(args),
+      Err(handler) => match handler.navigate_to(&self.url, args.dex) {
+        Navigation::Ok(mut node) => {
+          node.render(args);
+          self.root = Ok(node);
+        }
+        Navigation::Pending => Spinner::new(args.frame_number)
+          .style(style)
+          .label("Loading...")
+          .render(args.rect, args.output),
+        Navigation::NotFound => args.output.set_string(
+          args.rect.x,
+          args.rect.y,
+          format!("Not found: {}", self.url),
+          style,
+        ),
+      },
+    }
   }
 }
