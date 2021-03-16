@@ -17,7 +17,6 @@ use crate::dex::Dex;
 use crate::ui::component::page::Page;
 use crate::ui::component::CommandBuffer;
 use crate::ui::component::Component;
-
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
@@ -86,23 +85,26 @@ impl Browser {
       _ => {}
     }
 
-    let mut buf = CommandBuffer::new();
-    self
-      .focused_window()
-      .current_page()
-      .process_event(&mut EventArgs {
-        is_focused: true,
-        event: &Event::Key(k),
-        dex,
-        commands: &mut buf,
-      });
+    let mut claimed = false;
+    for (i, window) in self.windows.iter_mut().enumerate() {
+      let mut buf = CommandBuffer::new();
+      window.current_page()
+        .process_event(&mut EventArgs {
+          is_focused: i == self.focused_idx,
+          event: &Event::Key(k),
+          dex,
+          commands: &mut buf,
+        });
 
-    if let Some(url) = buf.take_url() {
-      let h = Arc::clone(&self.url_handler);
-      self.focused_window().navigate_to(Page::request(url, h))
+      if let Some(url) = buf.take_url() {
+        let h = Arc::clone(&self.url_handler);
+        window.navigate_to(Page::request(url, h))
+      }
+
+      claimed |= buf.is_claimed();
     }
 
-    if buf.is_claimed() {
+    if claimed {
       return;
     }
 
