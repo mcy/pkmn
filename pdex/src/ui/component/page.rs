@@ -64,6 +64,7 @@ impl Component for Page {
           rect: args.rect,
           dex: args.dex,
           commands: &mut CommandBuffer::new(),
+          style_sheet: args.style_sheet,
         })
       }
     }

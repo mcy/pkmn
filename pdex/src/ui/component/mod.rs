@@ -84,6 +84,7 @@ pub struct EventArgs<'browser> {
   pub rect: Rect,
   pub dex: &'browser Dex,
   pub commands: &'browser mut CommandBuffer,
+  pub style_sheet: &'browser StyleSheet,
 }
 
 pub enum Event {
@@ -165,7 +166,7 @@ pub struct RenderArgs<'browser> {
   pub rect: Rect,
   pub output: &'browser mut Buffer,
   pub frame_number: usize,
-  pub style_sheet: StyleSheet,
+  pub style_sheet: &'browser StyleSheet,
 }
 
 pub struct LayoutHintArgs<'browser> {
@@ -173,7 +174,7 @@ pub struct LayoutHintArgs<'browser> {
   pub direction: Direction,
   pub dex: &'browser Dex,
   pub rect: Rect,
-  pub style_sheet: StyleSheet,
+  pub style_sheet: &'browser StyleSheet,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -182,6 +183,11 @@ pub struct StyleSheet {
   pub unfocused: Style,
   pub selected: Style,
   pub type_colors: TypeColors,
+
+  /// The ratio of a font glyph's width to its height, useful for when we want
+  /// to compare hights and widths as they would be measured in pixels rather
+  /// than cells.
+  pub font_height: f64,
 }
 
 impl Default for StyleSheet {
@@ -191,6 +197,7 @@ impl Default for StyleSheet {
       unfocused: Style::default().fg(Color::Gray),
       selected: Style::default().add_modifier(Modifier::BOLD),
       type_colors: TypeColors::default(),
+      font_height: 2.1, // Eyeballed value.
     }
   }
 }

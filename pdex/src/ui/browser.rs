@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
-use crossterm::event::MouseEventKind;
 use crossterm::event::MouseEvent;
+use crossterm::event::MouseEventKind;
 
 use tui::backend::Backend;
 use tui::layout::Constraint;
@@ -101,6 +101,7 @@ impl Browser {
         rect: Rect::default(),
         dex,
         commands: &mut buf,
+        style_sheet: &StyleSheet::default(),
       });
 
       if let Some(url) = buf.take_url() {
@@ -224,7 +225,7 @@ impl Browser {
             output: buf,
             rect,
             frame_number: self.b.frame_number,
-            style_sheet: StyleSheet::default(),
+            style_sheet: &StyleSheet::default(),
           });
         }
       }

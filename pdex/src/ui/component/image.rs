@@ -5,7 +5,6 @@ use std::fmt::Debug;
 use pkmn::api::Blob;
 
 use tui::layout::Alignment;
-
 use tui::layout::Rect;
 use tui::style::Color;
 use tui::style::Modifier;
@@ -13,12 +12,10 @@ use tui::style::Style;
 use tui::text::Span;
 use tui::text::Spans;
 use tui::text::Text;
-
 use tui::widgets::Paragraph;
 use tui::widgets::Widget;
 
 use crate::ui::component::Component;
-
 use crate::ui::component::RenderArgs;
 
 #[derive(Clone, Debug)]
@@ -50,17 +47,19 @@ impl Component for Png {
         Some(image) => {
           // NOTE: Wider rectangles have a smaller aspect ratio, while taller
           // rectangles have a greater one.
-          const FONT_HEIGHT: f64 = 2.1;
           let rect_aspect = args.rect.height as f64 / args.rect.width as f64;
           let image_aspect = image.height() as f64 / image.width() as f64;
 
           // If the draw rectangle is wider or shorter than the image, we scale
           // according to the height ratio; otherwise, we use the width.
-          let (width, height) = if rect_aspect * FONT_HEIGHT < image_aspect {
+          let (width, height) = if rect_aspect * args.style_sheet.font_height
+            < image_aspect
+          {
             let scale_factor = args.rect.height as f64 / image.height() as f64;
 
-            let width =
-              (image.width() as f64 * scale_factor * FONT_HEIGHT) as u32;
+            let width = (image.width() as f64
+              * scale_factor
+              * args.style_sheet.font_height) as u32;
             let height = (image.height() as f64 * scale_factor) as u32;
 
             (width, height)
@@ -68,8 +67,8 @@ impl Component for Png {
             let scale_factor = args.rect.width as f64 / image.width() as f64;
 
             let width = (image.width() as f64 * scale_factor) as u32;
-            let height =
-              (image.height() as f64 * scale_factor / FONT_HEIGHT) as u32;
+            let height = (image.height() as f64 * scale_factor
+              / args.style_sheet.font_height) as u32;
 
             (width, height)
           };

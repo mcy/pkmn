@@ -1,7 +1,6 @@
 //! A stack of components arranged horizontally or vertically.
 
 use crossterm::event::KeyCode;
-
 use crossterm::event::MouseEvent;
 use crossterm::event::MouseEventKind;
 
@@ -160,6 +159,7 @@ impl Component for Stack {
         rect: node.last_size,
         dex: args.dex,
         commands: args.commands,
+        style_sheet: args.style_sheet,
       });
       if args.commands.is_claimed() {
         return;
@@ -174,14 +174,16 @@ impl Component for Stack {
       Event::Key(key) => {
         use Dir::*;
         use KeyCode::*;
+        let is_vertical = args.rect.height as f64 * args.style_sheet.font_height
+          > args.rect.width as f64;
         let delta = match (self.direction, key.code) {
           (Vertical, Up) => -1,
           (Vertical, Down) => 1,
           (Horizontal, Left) => -1,
           (Horizontal, Right) => 1,
 
-          // TODO: use the correct keys depending on layout. We need to
-          // do layouts for events anyway so this is on the todo-list.
+          (Flexible, Up) if is_vertical => -1,
+          (Flexible, Down) if is_vertical => 1,
           (Flexible, Left) => -1,
           (Flexible, Right) => 1,
           _ => return,
@@ -243,7 +245,10 @@ impl Component for Stack {
     let direction = match self.direction {
       Dir::Horizontal => Direction::Horizontal,
       Dir::Vertical => Direction::Vertical,
-      Dir::Flexible if args.rect.height > args.rect.width => {
+      Dir::Flexible
+        if args.rect.height as f64 * args.style_sheet.font_height
+          > args.rect.width as f64  =>
+      {
         Direction::Vertical
       }
       Dir::Flexible => Direction::Horizontal,
