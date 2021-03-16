@@ -1,30 +1,30 @@
 //! Lazily-loaded lists.
 
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::cell::RefMut;
 use std::fmt::Debug;
-
 use std::marker::PhantomData;
 
 use crossterm::event::KeyCode;
-
 use crossterm::event::KeyModifiers;
+use crossterm::event::MouseButton;
+use crossterm::event::MouseEventKind;
 
+use tui::text::Span;
 use tui::text::Spans;
-
+use tui::text::Text;
 use tui::widgets;
 use tui::widgets::List;
 use tui::widgets::ListItem;
 use tui::widgets::ListState;
-
 use tui::widgets::Widget;
 
 use crate::dex::Dex;
-
 use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
-
 use crate::ui::component::RenderArgs;
-
 use crate::ui::widgets::ScrollBar;
 use crate::ui::widgets::Spinner;
 
@@ -34,8 +34,7 @@ pub trait Listable {
   fn count(&mut self, dex: &Dex) -> Option<usize>;
   fn get_item(&mut self, index: usize, dex: &Dex) -> Option<Self::Item>;
   fn url_of(&self, item: &Self::Item) -> Option<String>;
-  fn format<'a>(&'a self, item: &'a Self::Item, args: &RenderArgs)
-    -> Spans<'a>;
+  fn format<'a>(&'a self, item: &'a Self::Item, args: &RenderArgs) -> Text<'a>;
 }
 
 pub struct PositionUpdate<L> {
@@ -48,7 +47,11 @@ pub struct PositionUpdate<L> {
 pub struct Listing<L: Listable> {
   list: L,
   items: Vec<Option<L::Item>>,
-  state: ListState,
+  index: usize,
+  offset: usize,
+  // Corresponds to which item in `items` was rendered at which Y height in
+  // this list, relative to the top.
+  rendered_items_by_y: Vec<usize>,
 }
 
 impl<L: Listable> Listing<L> {
@@ -56,16 +59,14 @@ impl<L: Listable> Listing<L> {
     Self {
       list,
       items: Vec::new(),
-      state: zero_list_state(),
+      index: 0,
+      offset: 0,
+      rendered_items_by_y: Vec::new(),
     }
   }
 
   pub fn selected(&self) -> Option<&L::Item> {
-    self
-      .items
-      .get(self.state.selected()?)
-      .map(Option::as_ref)
-      .flatten()
+    self.items.get(self.index).map(Option::as_ref).flatten()
   }
 }
 
@@ -79,43 +80,73 @@ where
   }
 
   fn process_event(&mut self, args: &mut EventArgs) {
-    if let Event::Key(key) = &args.event {
-      let m = key.modifiers;
-      let delta: isize = match key.code {
-        KeyCode::Up => -1,
-        KeyCode::Down => 1,
-        KeyCode::Char('u') if m == KeyModifiers::CONTROL => -20,
-        KeyCode::Char('d') if m == KeyModifiers::CONTROL => 20,
+    let delta = match args.event {
+      Event::Key(key) => {
+        let m = key.modifiers;
+        match key.code {
+          KeyCode::Up => -1,
+          KeyCode::Down => 1,
+          KeyCode::Char('u') if m == KeyModifiers::CONTROL => {
+            -(args.rect.height as isize)
+          }
+          KeyCode::Char('d') if m == KeyModifiers::CONTROL => {
+            args.rect.height as isize
+          }
 
-        KeyCode::Enter => {
-          let index = self.state.selected().unwrap_or(0);
-          if let Some(Some(item)) = self.items.get(index) {
-            if let Some(url) = self.list.url_of(item) {
-              args.commands.navigate_to(url);
-              args.commands.claim();
+          KeyCode::Enter => {
+            if let Some(Some(item)) = self.items.get(self.index) {
+              if let Some(url) = self.list.url_of(item) {
+                args.commands.navigate_to(url);
+                args.commands.claim();
+              }
             }
+            return;
+          }
+          _ => return,
+        }
+      }
+      Event::Mouse(m) => match m.kind {
+        MouseEventKind::ScrollUp => -1,
+        MouseEventKind::ScrollDown => 1,
+        MouseEventKind::Up(MouseButton::Left) => {
+          if let Some(relative_y) = m.row.checked_sub(args.rect.y) {
+            if let Some(&index) =
+              self.rendered_items_by_y.get(relative_y as usize)
+            {
+              self.index = index;
+              args.commands.broadcast(Box::new(PositionUpdate::<L> {
+                index: index,
+                _ph: PhantomData,
+              }))
+            }
+            args.commands.claim();
           }
           return;
         }
+        // TODO: Implerment scroll-bar dragging.
         _ => return,
-      };
+      },
+      _ => return,
+    };
 
-      let index = self.state.selected().unwrap_or(0);
-      let new_idx = ((index as isize).saturating_add(delta).max(0) as usize)
-        .min(self.items.len().saturating_sub(1));
+    let new_idx = ((self.index as isize).saturating_add(delta).max(0) as usize)
+      .min(self.items.len().saturating_sub(1));
 
-      if index != new_idx {
-        self.state.select(Some(new_idx));
-        args.commands.claim();
-        args.commands.broadcast(Box::new(PositionUpdate::<L> {
-          index: new_idx,
-          _ph: PhantomData,
-        }))
-      }
+    if self.index != new_idx {
+      self.index = new_idx;
+      args.commands.claim();
+      args.commands.broadcast(Box::new(PositionUpdate::<L> {
+        index: new_idx,
+        _ph: PhantomData,
+      }))
     }
   }
 
   fn render(&mut self, args: &mut RenderArgs) {
+    if args.rect.width == 0 || args.rect.height == 0 {
+      return;
+    }
+
     let style = if args.is_focused {
       args.style_sheet.focused
     } else {
@@ -135,10 +166,13 @@ where
       }
     }
 
+    // Load a reasonable number of elements within range of the current
+    // selection, to minimize the chance that the user sees a loading screen
+    // while scrolling slowly.
     let height = args.rect.height as usize;
-    let selected = self.state.selected().unwrap_or(0);
-    let range_lo = selected.saturating_sub(height);
-    let range_hi = selected
+    let range_lo = self.index.saturating_sub(height);
+    let range_hi = self
+      .index
       .saturating_add(height)
       .min(self.items.len().saturating_sub(1));
 
@@ -154,40 +188,108 @@ where
       .iter()
       .map(|x| match x {
         Some(x) => {
-          let mut spans = list.format(x, args);
-          for span in &mut spans.0 {
-            span.style = style.patch(span.style);
+          let mut lines = list.format(x, args);
+          for line in &mut lines.lines {
+            for span in &mut line.0 {
+              span.style = style.patch(span.style);
+            }
           }
-          ListItem::new(spans)
+          lines
         }
-        None => ListItem::new(
-          Spinner::new(args.frame_number)
-            .style(style)
-            .label("Loading...")
-            .into_spans(),
-        ),
+        None => Text::from(vec![Spinner::new(args.frame_number)
+          .style(style)
+          .label("Loading...")
+          .into_spans()]),
       })
       .collect::<Vec<_>>();
 
-    let _list = widgets::StatefulWidget::render(
-      List::new(list_items)
-        .highlight_style(style.patch(args.style_sheet.selected))
-        .highlight_symbol("➤ "),
-      args.rect,
-      args.output,
-      &mut self.state,
-    );
+    // Adapted from https://github.com/fdehau/tui-rs/blob/master/src/widgets/list.rs#L157
+    let mut start = self.offset;
+    let mut end = self.offset;
+    let mut height = 0;
+    for render in list_items.iter().skip(self.offset) {
+      if height + render.height() > args.rect.height as usize {
+        break;
+      }
+      height += render.height();
+      end += 1
+    }
 
-    let ratio = self.state.selected().unwrap_or(0) as f64
-      / (self.items.len().saturating_sub(1)) as f64;
+    let selected = self.index.min(self.items.len() - 1);
+    while selected >= end {
+      height = height.saturating_add(list_items[end].height());
+      end += 1;
+      while height > args.rect.height as usize {
+        height = height.saturating_sub(list_items[start].height());
+        start += 1;
+      }
+    }
+    while selected < start {
+      start -= 1;
+      height = height.saturating_add(list_items[start].height());
+      while height > args.rect.height as usize {
+        end -= 1;
+        height = height.saturating_sub(list_items[end].height());
+      }
+    }
+    self.offset = start;
+
+    let highlight_symbol = "➤ ";
+    let normal_symbol = "- ";
+    let blank_symbol = "  ";
+
+    let mut y = args.rect.y;
+    let width = args.rect.width.saturating_sub(2);
+    self.rendered_items_by_y.clear();
+    'outer: for (i, item) in list_items
+      .into_iter()
+      .enumerate()
+      .skip(self.offset)
+      .take(end - start)
+    {
+      let is_selected = i == self.index;
+      for (j, mut line) in item.lines.into_iter().enumerate() {
+        self.rendered_items_by_y.push(i);
+        let symbol = if j == 0 {
+          if is_selected {
+            highlight_symbol
+          } else {
+            normal_symbol
+          }
+        } else {
+          blank_symbol
+        };
+
+        let style = if is_selected {
+          style.patch(args.style_sheet.selected)
+        } else {
+          style
+        };
+
+        for span in &mut line.0 {
+          span.style = style.patch(span.style);
+        }
+
+        args.output.set_stringn(
+          args.rect.x,
+          y,
+          symbol,
+          args.rect.width as usize,
+          style,
+        );
+        if width == 0 {
+          y += 1;
+          continue;
+        }
+
+        args.output.set_spans(args.rect.x + 2, y, &line, width);
+        y += 1;
+      }
+    }
+
+    let ratio = self.index as f64 / (self.items.len().saturating_sub(1)) as f64;
     ScrollBar::new(ratio)
       .style(style)
       .render(args.rect, args.output);
   }
-}
-
-fn zero_list_state() -> ListState {
-  let mut state = ListState::default();
-  state.select(Some(0));
-  state
 }

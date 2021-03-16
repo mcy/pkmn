@@ -21,6 +21,7 @@ use crossterm::event::MouseEventKind;
 use tui::layout::Constraint;
 use tui::layout::Direction;
 use tui::style::Modifier;
+use tui::style::Style;
 use tui::text::Span;
 use tui::text::Spans;
 use tui::text::Text;
@@ -301,8 +302,8 @@ impl Listable for Pokedex {
   fn format<'a>(
     &'a self,
     (num, species, pokemon): &'a Self::Item,
-    _: &RenderArgs,
-  ) -> Spans<'a> {
+    args: &RenderArgs,
+  ) -> Text<'a> {
     let name = species
       .localized_names
       .get(LanguageName::English)
@@ -314,12 +315,21 @@ impl Listable for Pokedex {
       .filter_map(|ty| Some((ty.slot, ty.ty.variant()?)))
       .collect::<Vec<_>>();
     types.sort_by_key(|&(i, ..)| i);
-    let types = match &types[..] {
-      &[(_, first)] => format!("{:?}", first),
-      &[(_, first), (_, second)] => format!("{:?}/{:?}", first, second),
-      _ => "???".to_string(),
-    };
 
-    format!("#{:03} {:12} {}", num, name, types).into()
+    let mut spans =
+      Spans::from(vec![Span::raw(format!("#{:03} {:12} ", num, name))]);
+
+    for (i, &(_, t)) in types.iter().enumerate() {
+      // TODO: Localize
+      if i != 0 {
+        spans.0.push(Span::raw(" · "));
+      }
+      spans.0.push(Span::styled(
+        format!("{:?}", t),
+        Style::default().fg(args.style_sheet.type_colors.get(t)),
+      ));
+    }
+
+    spans.into()
   }
 }

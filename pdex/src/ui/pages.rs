@@ -76,6 +76,7 @@ pub fn get() -> Handler {
           Constraint::Min(0),
           PokedexDetail::new(pokedex, starting_number),
         )
+        .add_constrained(Constraint::Length(1), Empty)
         .add_constrained(
           Constraint::Length(40),
           Listing::new(Pokedex(pokedex)),

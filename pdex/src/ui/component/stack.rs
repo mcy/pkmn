@@ -157,7 +157,7 @@ impl Component for Stack {
       node.component.process_event(&mut EventArgs {
         is_focused,
         event: args.event,
-        rect: args.rect,
+        rect: node.last_size,
         dex: args.dex,
         commands: args.commands,
       });
