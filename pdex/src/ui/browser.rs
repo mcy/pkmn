@@ -4,6 +4,8 @@ use std::sync::Arc;
 
 use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
+use crossterm::event::MouseEventKind;
+use crossterm::event::MouseEvent;
 
 use tui::backend::Backend;
 use tui::layout::Constraint;
@@ -114,49 +116,72 @@ impl Browser {
     }
 
     // Browser-level key controls.
-    if let crossterm::event::Event::Key(k) = e {
-      let m = k.modifiers;
+    match e {
+      crossterm::event::Event::Key(k) => {
+        let m = k.modifiers;
 
-      match k.code {
-        // History control.
-        KeyCode::PageUp => self.focused_window().shift_history(-1),
-        KeyCode::PageDown => self.focused_window().shift_history(1),
+        match k.code {
+          // History control.
+          KeyCode::PageUp => self.focused_window().shift_history(-1),
+          KeyCode::PageDown => self.focused_window().shift_history(1),
 
-        // Move windows.
-        KeyCode::Left if m == KeyModifiers::CONTROL => {
-          self.move_focused_window(-1)
-        }
-        KeyCode::Right if m == KeyModifiers::CONTROL => {
-          self.move_focused_window(1)
-        }
-
-        // Move focus between windows. Note that modifiers aren't chekced.
-        KeyCode::Left => self.move_focus(-1),
-        KeyCode::Right => self.move_focus(1),
-
-        // Spawn new window after the current one.
-        KeyCode::Char('n') => self.windows.insert(
-          self.focused_idx + 1,
-          Window::new(Page::request(
-            "pdex://main-menu".into(),
-            Arc::clone(&self.url_handler),
-          )),
-        ),
-        KeyCode::Char('N') => {
-          let clone = self.focused_window().clone();
-          self.windows.insert(self.focused_idx + 1, clone)
-        }
-
-        // Close the current window.
-        KeyCode::Char('q') => {
-          if self.windows.len() > 1 {
-            self.windows.remove(self.focused_idx);
-            self.focused_idx = self.focused_idx.saturating_sub(1);
+          // Move windows.
+          KeyCode::Left if m == KeyModifiers::CONTROL => {
+            self.move_focused_window(-1)
           }
-        }
+          KeyCode::Right if m == KeyModifiers::CONTROL => {
+            self.move_focused_window(1)
+          }
 
-        _ => {}
+          // Move focus between windows. Note that modifiers aren't chekced.
+          KeyCode::Left => self.move_focus(-1),
+          KeyCode::Right => self.move_focus(1),
+
+          // Spawn new window after the current one.
+          KeyCode::Char('n') => self.windows.insert(
+            self.focused_idx + 1,
+            Window::new(Page::request(
+              "pdex://main-menu".into(),
+              Arc::clone(&self.url_handler),
+            )),
+          ),
+          KeyCode::Char('N') => {
+            let clone = self.focused_window().clone();
+            self.windows.insert(self.focused_idx + 1, clone)
+          }
+
+          // Close the current window.
+          KeyCode::Char('q') => {
+            if self.windows.len() > 1 {
+              self.windows.remove(self.focused_idx);
+              self.focused_idx = self.focused_idx.saturating_sub(1);
+            }
+          }
+
+          _ => {}
+        }
       }
+      crossterm::event::Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Moved,
+        column,
+        row,
+        ..
+      }) => {
+        // Give focus to anything we happen to mouse over.
+        for (i, w) in self.windows.iter_mut().enumerate() {
+          if column < w.last_size.x
+            || column >= w.last_size.x + w.last_size.width
+            || row < w.last_size.y
+            || row >= w.last_size.y + w.last_size.height
+          {
+            continue;
+          }
+
+          self.focused_idx = i;
+          break;
+        }
+      }
+      _ => {}
     }
   }
 
@@ -191,6 +216,7 @@ impl Browser {
         for (i, (w, rect)) in
           self.b.windows.iter_mut().zip(pane_rects).enumerate()
         {
+          w.last_size = rect;
           let _ = w.current_page().render(&mut RenderArgs {
             is_focused: i == self.b.focused_idx,
             url_handler: &self.b.url_handler,
@@ -215,6 +241,7 @@ impl Browser {
 pub struct Window {
   history: Vec<Page>,
   current_page: usize,
+  last_size: Rect,
 }
 
 impl Window {
@@ -223,6 +250,7 @@ impl Window {
     Self {
       history: vec![page],
       current_page: 0,
+      last_size: Rect::default(),
     }
   }
 
