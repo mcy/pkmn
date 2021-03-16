@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 
 use tui::backend::Backend;

@@ -1,7 +1,7 @@
 //! A stack of components arranged horizontally or vertically.
 
 use crossterm::event::KeyCode;
-use crossterm::event::MouseButton;
+
 use crossterm::event::MouseEvent;
 use crossterm::event::MouseEventKind;
 

@@ -76,8 +76,8 @@ impl Component for Hyperlink {
       }
       Event::Mouse(MouseEvent {
         kind: MouseEventKind::Up(MouseButton::Left),
-        column,
-        row,
+        column: _,
+        row: _,
         ..
       }) => {
         args.commands.claim();

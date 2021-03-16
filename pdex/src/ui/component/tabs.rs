@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::iter;
 
 use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
+
 use crossterm::event::MouseButton;
 use crossterm::event::MouseEvent;
 use crossterm::event::MouseEventKind;

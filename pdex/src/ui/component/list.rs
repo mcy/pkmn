@@ -1,8 +1,5 @@
 //! Lazily-loaded lists.
 
-use std::borrow::Cow;
-use std::cell::RefCell;
-use std::cell::RefMut;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -11,13 +8,7 @@ use crossterm::event::KeyModifiers;
 use crossterm::event::MouseButton;
 use crossterm::event::MouseEventKind;
 
-use tui::text::Span;
-use tui::text::Spans;
 use tui::text::Text;
-use tui::widgets;
-use tui::widgets::List;
-use tui::widgets::ListItem;
-use tui::widgets::ListState;
 use tui::widgets::Widget;
 
 use crate::dex::Dex;
@@ -241,7 +232,7 @@ where
     let mut y = args.rect.y;
     let width = args.rect.width.saturating_sub(2);
     self.rendered_items_by_y.clear();
-    'outer: for (i, item) in list_items
+    for (i, item) in list_items
       .into_iter()
       .enumerate()
       .skip(self.offset)
