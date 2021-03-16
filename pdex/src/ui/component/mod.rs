@@ -1,6 +1,7 @@
 //! UI components.
 
 use std::any::Any;
+use std::fmt;
 use std::fmt::Debug;
 use std::mem;
 use std::sync::Arc;
@@ -86,6 +87,17 @@ pub struct EventArgs<'browser> {
 pub enum Event {
   Key(KeyEvent),
   Message(Box<dyn Any>),
+}
+
+impl fmt::Debug for Event {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Self::Key(k) => f.debug_tuple("Event::Key").field(k).finish(),
+      Self::Message(..) => {
+        f.debug_tuple("Event::Message").field(&"<Any>").finish()
+      }
+    }
+  }
 }
 
 /// A buffer for issuing commands to the browser in response to an event.
