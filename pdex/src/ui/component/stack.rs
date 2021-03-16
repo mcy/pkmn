@@ -113,6 +113,10 @@ impl Component for Stack {
     true
   }
 
+  fn wants_focus(&self) -> bool {
+    self.nodes.iter().any(|n| n.component.wants_focus())
+  }
+
   fn process_event(&mut self, args: &mut EventArgs) {
     for (i, node) in self.nodes.iter_mut().enumerate() {
       let is_focused = args.is_focused && self.focus_idx == Some(i);
