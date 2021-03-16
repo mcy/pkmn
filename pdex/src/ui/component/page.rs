@@ -25,20 +25,19 @@ use crate::ui::widgets::Chrome;
 use crate::ui::widgets::Spinner;
 
 #[derive(Clone, Debug)]
-pub enum Node {
-  Stack {
-    direction: Dir,
-    size_constraint: Option<Constraint>,
-    nodes: Vec<Node>,
-    focus_idx: Option<usize>,
-  },
-  Leaf {
-    size_constraint: Option<Constraint>,
-    component: Box<dyn Component>,
-  },
+pub struct Stack {
+  direction: Dir,
+  nodes: Vec<Node>,
+  focus_idx: Option<usize>,
 }
 
-impl Node {
+#[derive(Clone, Debug)]
+struct Node {
+  size_constraint: Option<Constraint>,
+  component: Box<dyn Component>,
+}
+
+impl Stack {
   pub fn new(
     direction: Dir,
     body: impl FnOnce(NodeBuilder) -> Option<NodeBuilder>,
@@ -49,7 +48,6 @@ impl Node {
 
 pub struct NodeBuilder {
   direction: Dir,
-  size_constraint: Option<Constraint>,
   nodes: Vec<Node>,
   focus_idx: Option<usize>,
 }
@@ -58,15 +56,9 @@ impl NodeBuilder {
   fn new(direction: Dir) -> Self {
     Self {
       direction,
-      size_constraint: None,
       nodes: Vec::new(),
       focus_idx: None,
     }
-  }
-
-  pub fn constrain(mut self, constraint: Constraint) -> Option<Self> {
-    self.size_constraint = Some(constraint);
-    Some(self)
   }
 
   pub fn default_focus(mut self, focus_idx: usize) -> Option<Self> {
@@ -76,7 +68,7 @@ impl NodeBuilder {
   }
 
   pub fn add(mut self, component: impl Component + 'static) -> Option<Self> {
-    self.nodes.push(Node::Leaf {
+    self.nodes.push(Node {
       size_constraint: None,
       component: Box::new(component),
     });
@@ -88,7 +80,7 @@ impl NodeBuilder {
     constraint: Constraint,
     component: impl Component + 'static,
   ) -> Option<Self> {
-    self.nodes.push(Node::Leaf {
+    self.nodes.push(Node {
       size_constraint: Some(constraint),
       component: Box::new(component),
     });
@@ -100,16 +92,14 @@ impl NodeBuilder {
     direction: Dir,
     body: impl FnOnce(Self) -> Option<Self>,
   ) -> Option<Self> {
-    self.nodes.push(Node::new(direction, body)?);
-    Some(self)
+    self.add(Stack::new(direction, body)?)
   }
 }
 
-impl From<NodeBuilder> for Node {
+impl From<NodeBuilder> for Stack {
   fn from(b: NodeBuilder) -> Self {
-    Self::Stack {
+    Self {
       direction: b.direction,
-      size_constraint: b.size_constraint,
       nodes: b.nodes,
       focus_idx: b.focus_idx,
     }
@@ -123,200 +113,155 @@ pub enum Dir {
   Flexible,
 }
 
-impl Node {
+impl Component for Stack {
   fn wants_all_events(&self) -> bool {
     true
   }
 
   fn process_event(&mut self, args: &mut EventArgs) {
-    match self {
-      Node::Leaf { component, .. } => {
-        match args.event {
-          Event::Key(_)
-            if !component.wants_all_events() && !args.is_focused =>
-          {
-            return
-          }
-          _ => {}
+    for (i, node) in self.nodes.iter_mut().enumerate() {
+      let is_focused = args.is_focused && self.focus_idx == Some(i);
+      match args.event {
+        Event::Key(_) if !node.component.wants_all_events() && !is_focused => {
+          continue
         }
-        component.process_event(args)
+        _ => {}
       }
-      Node::Stack {
-        nodes,
-        focus_idx,
-        direction,
-        ..
-      } => {
-        for (i, node) in nodes.iter_mut().enumerate() {
-          let is_focused = args.is_focused && Some(i) == *focus_idx;
-          match args.event {
-            Event::Key(_) if !node.wants_all_events() && !is_focused => {
-              continue
-            }
-            _ => {}
-          }
 
-          // TODO: do not deliver key-presses to components which have zero
-          // width or height (this will also be needed for mouse support later)
-          // anyways.
-          node.process_event(&mut EventArgs {
-            is_focused,
-            event: args.event,
-            dex: args.dex,
-            commands: args.commands,
-          });
-          if args.commands.is_claimed() {
+      // TODO: do not deliver key-presses to components which have zero
+      // width or height (this will also be needed for mouse support later)
+      // anyways.
+      node.component.process_event(&mut EventArgs {
+        is_focused,
+        event: args.event,
+        dex: args.dex,
+        commands: args.commands,
+      });
+      if args.commands.is_claimed() {
+        return;
+      }
+    }
+
+    if !args.is_focused {
+      return;
+    }
+
+    match args.event {
+      Event::Key(key) => {
+        use Dir::*;
+        use KeyCode::*;
+        let delta = match (self.direction, key.code) {
+          (Vertical, Up) => -1,
+          (Vertical, Down) => 1,
+          (Horizontal, Left) => -1,
+          (Horizontal, Right) => 1,
+
+          // TODO: use the correct keys depending on layout. We need to
+          // do layouts for events anyway so this is on the todo-list.
+          (Flexible, Left) => -1,
+          (Flexible, Right) => 1,
+          _ => return,
+        };
+
+        let old_val = self.focus_idx.unwrap_or(0);
+        let mut new_val = old_val as isize;
+        loop {
+          new_val += delta;
+          if new_val < 0 {
             return;
           }
-        }
 
-        if !args.is_focused {
-          return;
-        }
-
-        match args.event {
-          Event::Key(key) => {
-            use Dir::*;
-            use KeyCode::*;
-            let delta = match (direction, key.code) {
-              (Vertical, Up) => -1,
-              (Vertical, Down) => 1,
-              (Horizontal, Left) => -1,
-              (Horizontal, Right) => 1,
-
-              // TODO: use the correct keys depending on layout. We need to
-              // do layouts for events anyway so this is on the todo-list.
-              (Flexible, Left) => -1,
-              (Flexible, Right) => 1,
-              _ => return,
-            };
-
-            let old_val = focus_idx.unwrap_or(0);
-            let mut new_val = old_val as isize;
-            loop {
-              new_val += delta;
-              if new_val < 0 {
-                return;
-              }
-
-              match nodes.get(new_val as usize) {
-                Some(x) => match x {
-                  Node::Leaf { component, .. } if !component.wants_focus() => {
-                    continue
-                  }
-                  _ => break,
-                },
-                None => return,
-              }
-            }
-
-            if old_val != new_val as usize {
-              *focus_idx = Some(new_val as usize);
-              args.commands.claim();
-            }
+          match self.nodes.get(new_val as usize) {
+            Some(node) if node.component.wants_focus() => break,
+            Some(_) => continue,
+            None => return,
           }
-          _ => {}
+        }
+
+        if old_val != new_val as usize {
+          self.focus_idx = Some(new_val as usize);
+          args.commands.claim();
         }
       }
+      _ => {}
     }
   }
 
   fn render(&mut self, args: &mut RenderArgs) {
-    match self {
-      Node::Leaf { component, .. } => component.render(args),
-      Node::Stack {
-        nodes,
-        direction,
-        focus_idx,
-        ..
-      } => {
-        let direction = match direction {
-          Dir::Horizontal => Direction::Horizontal,
-          Dir::Vertical => Direction::Vertical,
-          Dir::Flexible if args.rect.height > args.rect.width => {
-            Direction::Vertical
-          }
-          Dir::Flexible => Direction::Horizontal,
-        };
-
-        let mut constraints = Vec::new();
-        let len = nodes.len();
-        for node in &mut *nodes {
-          constraints.push(match node {
-            Node::Stack {
-              size_constraint: Some(c),
-              ..
-            } => *c,
-            Node::Leaf {
-              size_constraint: Some(c),
-              ..
-            } => *c,
-            Node::Leaf { component, .. } => {
-              match component.layout_hint(&LayoutHintArgs {
-                is_focused: args.is_focused,
-                direction: direction.clone(),
-                dex: args.dex,
-                rect: args.rect,
-                style_sheet: args.style_sheet,
-              }) {
-                Some(c) => c,
-                None => Constraint::Ratio(1, len as u32),
-              }
-            }
-            _ => Constraint::Ratio(1, len as u32),
-          });
-        }
-
-        // Fix up the focus pointers so that they point at something
-        // reasonable, rather than at nothing. To do this, we make each
-        // unpointed focus index point to the first focusable element in
-        // each stack node.
-        if focus_idx.is_none() {
-          *focus_idx = nodes
-            .iter()
-            .enumerate()
-            .find(|(_, node)| match node {
-              Node::Leaf { component, .. } => component.wants_focus(),
-              _ => true,
-            })
-            .map(|(i, _)| i);
-        }
-
-        let layout = Layout::default()
-          .direction(direction)
-          .constraints(constraints)
-          .split(args.rect);
-
-        for (i, (node, rect)) in
-          nodes.iter_mut().zip(layout.into_iter()).enumerate()
-        {
-          node.render(&mut RenderArgs {
-            is_focused: args.is_focused && *focus_idx == Some(i),
-            dex: args.dex,
-            url_handler: args.url_handler,
-            output: args.output,
-            frame_number: args.frame_number,
-            style_sheet: args.style_sheet,
-            rect,
-          });
-        }
+    let direction = match self.direction {
+      Dir::Horizontal => Direction::Horizontal,
+      Dir::Vertical => Direction::Vertical,
+      Dir::Flexible if args.rect.height > args.rect.width => {
+        Direction::Vertical
       }
+      Dir::Flexible => Direction::Horizontal,
+    };
+
+    let mut constraints = Vec::new();
+    let len = self.nodes.len();
+    for node in &mut self.nodes {
+      let constraint = if let Some(c) = node.size_constraint {
+        c
+      } else if let Some(c) = node.component.layout_hint(&LayoutHintArgs {
+        is_focused: args.is_focused,
+        direction: direction.clone(),
+        dex: args.dex,
+        rect: args.rect,
+        style_sheet: args.style_sheet,
+      }) {
+        c
+      } else {
+        Constraint::Ratio(1, len as u32)
+      };
+      constraints.push(constraint);
+    }
+
+    // Fix up the focus pointers so that they point at something
+    // reasonable, rather than at nothing. To do this, we make each
+    // unpointed focus index point to the first focusable element in
+    // each stack node.
+    if self.focus_idx.is_none() {
+      self.focus_idx = self
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| node.component.wants_focus())
+        .map(|(i, _)| i);
+    }
+
+    let layout = Layout::default()
+      .direction(direction)
+      .constraints(constraints)
+      .split(args.rect);
+
+    for (i, (node, rect)) in
+      self.nodes.iter_mut().zip(layout.into_iter()).enumerate()
+    {
+      node.component.render(&mut RenderArgs {
+        is_focused: args.is_focused && self.focus_idx == Some(i),
+        dex: args.dex,
+        url_handler: args.url_handler,
+        output: args.output,
+        frame_number: args.frame_number,
+        style_sheet: args.style_sheet,
+        rect,
+      });
     }
   }
 }
 
 #[derive(Clone, Debug)]
 pub struct Page {
-  root: Result<Node, Arc<Handler>>,
+  root: Result<Box<dyn Component>, Arc<Handler>>,
   url: String,
   hide_chrome: bool,
 }
 
 impl Page {
-  pub fn new(url: String, root: Node) -> Self {
+  pub fn new(url: String, root: impl Component + 'static) -> Self {
     Self {
       url,
-      root: Ok(root),
+      root: Ok(Box::new(root)),
       hide_chrome: false,
     }
   }

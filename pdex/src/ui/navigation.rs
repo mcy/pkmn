@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::fmt;
 
 use crate::dex::Dex;
-use crate::ui::component::page::Node;
+use crate::ui::component::Component;
 
 /// A `pdex`-scheme URL, which is a subset of an HTTP URL, but without an
 /// origin.
@@ -85,7 +85,7 @@ pub struct Handler {
 }
 
 pub enum Navigation {
-  Ok(Node),
+  Ok(Box<dyn Component>),
   Pending,
   NotFound,
 }
@@ -106,7 +106,12 @@ impl Handler {
   pub fn handle(
     mut self,
     template: &str,
-    factory: impl Fn(Url, Vec<&str>, HashMap<&str, Option<&str>>, &Dex) -> Option<Node>
+    factory: impl Fn(
+        Url,
+        Vec<&str>,
+        HashMap<&str, Option<&str>>,
+        &Dex,
+      ) -> Option<Box<dyn Component>>
       + 'static,
   ) -> Self {
     let url = Url::from(template).unwrap();
@@ -153,7 +158,12 @@ struct Matcher {
   path: Vec<PathComponent>,
   args: HashSet<String>,
   factory: Box<
-    dyn Fn(Url, Vec<&str>, HashMap<&str, Option<&str>>, &Dex) -> Option<Node>,
+    dyn Fn(
+      Url,
+      Vec<&str>,
+      HashMap<&str, Option<&str>>,
+      &Dex,
+    ) -> Option<Box<dyn Component>>,
   >,
 }
 

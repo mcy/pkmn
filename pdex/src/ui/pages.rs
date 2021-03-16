@@ -12,8 +12,8 @@ use tui::style::Style;
 use tui::widgets::Paragraph;
 
 use crate::ui::component::page::Dir;
-use crate::ui::component::page::Node;
 use crate::ui::component::page::Page;
+use crate::ui::component::page::Stack;
 use crate::ui::component::pokedex::Pokedex;
 use crate::ui::component::pokedex::PokedexDetail;
 use crate::ui::component::pokedex::PokedexSprite;
@@ -29,7 +29,7 @@ use crate::ui::navigation::Handler;
 pub fn get() -> Handler {
   Handler::new() //
     .handle("pdex://main-menu", |url, _, _, _| {
-      Node::new(Dir::Vertical, |n| {
+      Stack::new(Dir::Vertical, |n| {
         n.add_constrained(Constraint::Percentage(40), Empty)?
           .add_constrained(
             Constraint::Length(1),
@@ -69,9 +69,10 @@ pub fn get() -> Handler {
           )?
           .add_constrained(Constraint::Percentage(50), Empty)
       })
+      .map(|c| Box::new(c) as Box<dyn Component>)
     })
     .handle("pdex://pokedex/{}?n", |url, path, args, _| {
-      Node::new(Dir::Horizontal, |n| {
+      Stack::new(Dir::Horizontal, |n| {
         n.add_constrained(
           Constraint::Min(0),
           PokedexDetail::new(
@@ -87,6 +88,7 @@ pub fn get() -> Handler {
           Listing::new(Pokedex(path[0].parse().ok()?)),
         )
       })
+      .map(|c| Box::new(c) as Box<dyn Component>)
     })
     .handle("pdex://pokemon/{}?pokedex", |url, path, args, dex| {
       let species = dex.species.get(path[0])?;
@@ -117,7 +119,7 @@ pub fn get() -> Handler {
         .unwrap_or(TypeName::Unknown);
       let second = types.get(1).map(|t| t.ty.variant()).flatten();
 
-      Node::new(Dir::Vertical, |n| {
+      Stack::new(Dir::Vertical, |n| {
         n.add_constrained(
           Constraint::Length(3),
           Tabs::new(vec![
@@ -144,9 +146,10 @@ pub fn get() -> Handler {
           )
         })
       })
+      .map(|c| Box::new(c) as Box<dyn Component>)
     })
     .handle("pdex://focus-test", |url, _, _, _| {
-      Node::new(Dir::Vertical, |n| {
+      Stack::new(Dir::Vertical, |n| {
         n.add(TestBox::new())?
           .add(TestBox::new())?
           .stack(Dir::Horizontal, |n| {
@@ -160,5 +163,6 @@ pub fn get() -> Handler {
           })?
           .add(TestBox::new())
       })
+      .map(|c| Box::new(c) as Box<dyn Component>)
     })
 }
