@@ -71,30 +71,35 @@ impl Browser {
     self.focused_idx = new_idx;
   }
 
-  /// Propagates a key down through the view tree.
+  /// Propagates a terminal event down through the view tree.
   ///
   /// Some keys may be intercepted by the browser; for example, backspace will
   /// go back one step in history.
-  pub fn process_key(&mut self, k: KeyEvent, dex: &Dex) {
+  pub fn process_event(&mut self, e: crossterm::event::Event, dex: &Dex) {
     // Keys that override normal event processing.
-    let m = k.modifiers;
-    match k.code {
-      // Move focus between windows, without notifying the page.
-      KeyCode::Left if m == KeyModifiers::SHIFT => self.move_focus(-1),
-      KeyCode::Right if m == KeyModifiers::SHIFT => self.move_focus(1),
-      _ => {}
+    if let crossterm::event::Event::Key(k) = e {
+      let m = k.modifiers;
+      match k.code {
+        // Move focus between windows, without notifying the page.
+        KeyCode::Left if m == KeyModifiers::SHIFT => self.move_focus(-1),
+        KeyCode::Right if m == KeyModifiers::SHIFT => self.move_focus(1),
+        _ => {}
+      }
     }
 
     let mut claimed = false;
     for (i, window) in self.windows.iter_mut().enumerate() {
       let mut buf = CommandBuffer::new();
-      window.current_page()
-        .process_event(&mut EventArgs {
-          is_focused: i == self.focused_idx,
-          event: &Event::Key(k),
-          dex,
-          commands: &mut buf,
-        });
+      window.current_page().process_event(&mut EventArgs {
+        is_focused: i == self.focused_idx,
+        event: &match e {
+          crossterm::event::Event::Key(k) => Event::Key(k),
+          crossterm::event::Event::Mouse(m) => Event::Mouse(m),
+          _ => return,
+        },
+        dex,
+        commands: &mut buf,
+      });
 
       if let Some(url) = buf.take_url() {
         let h = Arc::clone(&self.url_handler);
@@ -109,45 +114,49 @@ impl Browser {
     }
 
     // Browser-level key controls.
-    match k.code {
-      // History control.
-      KeyCode::PageUp => self.focused_window().shift_history(-1),
-      KeyCode::PageDown => self.focused_window().shift_history(1),
+    if let crossterm::event::Event::Key(k) = e {
+      let m = k.modifiers;
 
-      // Move windows.
-      KeyCode::Left if m == KeyModifiers::CONTROL => {
-        self.move_focused_window(-1)
-      }
-      KeyCode::Right if m == KeyModifiers::CONTROL => {
-        self.move_focused_window(1)
-      }
+      match k.code {
+        // History control.
+        KeyCode::PageUp => self.focused_window().shift_history(-1),
+        KeyCode::PageDown => self.focused_window().shift_history(1),
 
-      // Move focus between windows. Note that modifiers aren't chekced.
-      KeyCode::Left => self.move_focus(-1),
-      KeyCode::Right => self.move_focus(1),
-
-      // Spawn new window after the current one.
-      KeyCode::Char('n') => self.windows.insert(
-        self.focused_idx + 1,
-        Window::new(Page::request(
-          "pdex://main-menu".into(),
-          Arc::clone(&self.url_handler),
-        )),
-      ),
-      KeyCode::Char('N') => {
-        let clone = self.focused_window().clone();
-        self.windows.insert(self.focused_idx + 1, clone)
-      }
-
-      // Close the current window.
-      KeyCode::Char('q') => {
-        if self.windows.len() > 1 {
-          self.windows.remove(self.focused_idx);
-          self.focused_idx = self.focused_idx.saturating_sub(1);
+        // Move windows.
+        KeyCode::Left if m == KeyModifiers::CONTROL => {
+          self.move_focused_window(-1)
         }
-      }
+        KeyCode::Right if m == KeyModifiers::CONTROL => {
+          self.move_focused_window(1)
+        }
 
-      _ => {}
+        // Move focus between windows. Note that modifiers aren't chekced.
+        KeyCode::Left => self.move_focus(-1),
+        KeyCode::Right => self.move_focus(1),
+
+        // Spawn new window after the current one.
+        KeyCode::Char('n') => self.windows.insert(
+          self.focused_idx + 1,
+          Window::new(Page::request(
+            "pdex://main-menu".into(),
+            Arc::clone(&self.url_handler),
+          )),
+        ),
+        KeyCode::Char('N') => {
+          let clone = self.focused_window().clone();
+          self.windows.insert(self.focused_idx + 1, clone)
+        }
+
+        // Close the current window.
+        KeyCode::Char('q') => {
+          if self.windows.len() > 1 {
+            self.windows.remove(self.focused_idx);
+            self.focused_idx = self.focused_idx.saturating_sub(1);
+          }
+        }
+
+        _ => {}
+      }
     }
   }
 

@@ -7,6 +7,7 @@ use std::mem;
 use std::sync::Arc;
 
 use crossterm::event::KeyEvent;
+use crossterm::event::MouseEvent;
 
 use pkmn::model::TypeName;
 
@@ -86,6 +87,7 @@ pub struct EventArgs<'browser> {
 
 pub enum Event {
   Key(KeyEvent),
+  Mouse(MouseEvent),
   Message(Box<dyn Any>),
 }
 
@@ -93,6 +95,7 @@ impl fmt::Debug for Event {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       Self::Key(k) => f.debug_tuple("Event::Key").field(k).finish(),
+      Self::Mouse(m) => f.debug_tuple("Event::Mouse").field(m).finish(),
       Self::Message(..) => {
         f.debug_tuple("Event::Message").field(&"<Any>").finish()
       }

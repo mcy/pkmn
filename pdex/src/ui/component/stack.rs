@@ -5,6 +5,7 @@ use crossterm::event::KeyCode;
 use tui::layout::Constraint;
 use tui::layout::Direction;
 use tui::layout::Layout;
+use tui::layout::Rect;
 
 use crate::ui::component::Component;
 use crate::ui::component::Event;
@@ -34,6 +35,7 @@ pub enum Dir {
 #[derive(Clone, Debug)]
 struct Node {
   size_constraint: Option<Constraint>,
+  last_size: Rect,
   component: Box<dyn Component>,
 }
 
@@ -72,6 +74,7 @@ impl Builder {
   pub fn add(&mut self, component: impl Component + 'static) -> &mut Self {
     self.nodes.push(Node {
       size_constraint: None,
+      last_size: Rect::default(),
       component: Box::new(component),
     });
     self
@@ -84,6 +87,7 @@ impl Builder {
   ) -> &mut Self {
     self.nodes.push(Node {
       size_constraint: Some(constraint),
+      last_size: Rect::default(),
       component: Box::new(component),
     });
     self
@@ -121,15 +125,32 @@ impl Component for Stack {
     for (i, node) in self.nodes.iter_mut().enumerate() {
       let is_focused = args.is_focused && self.focus_idx == Some(i);
       match args.event {
-        Event::Key(_) if !node.component.wants_all_events() && !is_focused => {
-          continue
+        Event::Key(_) if !node.component.wants_all_events() => {
+          // Do not deliver key-presses to unfocused components.
+          if !is_focused {
+            continue;
+          }
+        }
+        Event::Mouse(m) if !node.component.wants_all_events() => {
+          // Do not deliver mouse events to elements that the event is not
+          // in, directly.
+          if m.column < node.last_size.x
+            || m.column >= node.last_size.x + node.last_size.width
+            || m.row < node.last_size.y
+            || m.row >= node.last_size.y + node.last_size.height
+          {
+            continue;
+          }
+        }
+        Event::Key(_) | Event::Mouse(_) => {
+          // Do not deliver user-interaction events to invisible elements.
+          if node.last_size.width == 0 || node.last_size.height == 0 {
+            continue;
+          }
         }
         _ => {}
       }
 
-      // TODO: do not deliver key-presses to components which have zero
-      // width or height (this will also be needed for mouse support later)
-      // anyways.
       node.component.process_event(&mut EventArgs {
         is_focused,
         event: args.event,
@@ -171,6 +192,12 @@ impl Component for Stack {
           }
 
           match self.nodes.get(new_val as usize) {
+            // Do not focus on zero-sized elements, if we can avoid it.
+            Some(node)
+              if node.last_size.width == 0 || node.last_size.height == 0 =>
+            {
+              continue
+            }
             Some(node) if node.component.wants_focus() => break,
             Some(_) => continue,
             None => return,
@@ -236,6 +263,7 @@ impl Component for Stack {
     for (i, (node, rect)) in
       self.nodes.iter_mut().zip(layout.into_iter()).enumerate()
     {
+      node.last_size = rect;
       node.component.render(&mut RenderArgs {
         is_focused: args.is_focused && self.focus_idx == Some(i),
         dex: args.dex,
