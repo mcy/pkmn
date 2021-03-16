@@ -13,12 +13,14 @@ use pkmn::model::Species;
 use pkmn::model::TypeName;
 
 use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::MouseButton;
+use crossterm::event::MouseEvent;
+use crossterm::event::MouseEventKind;
 
 use tui::layout::Constraint;
 use tui::layout::Direction;
-
 use tui::style::Modifier;
-
 use tui::text::Span;
 use tui::text::Spans;
 use tui::text::Text;
@@ -30,7 +32,6 @@ use crate::ui::component::image::Png;
 use crate::ui::component::list::Listable;
 use crate::ui::component::list::PositionUpdate;
 use crate::ui::component::page::Page;
-
 use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
@@ -150,16 +151,26 @@ impl Component for TypeLink {
   }
 
   fn process_event(&mut self, args: &mut EventArgs) {
-    if let Event::Key(key) = args.event {
-      match key.code {
-        KeyCode::Enter => {
-          args.commands.claim();
-          args
-            .commands
-            .navigate_to(format!("pdex://type/{}", self.0.to_str()));
-        }
-        _ => {}
+    match args.event {
+      Event::Key(KeyEvent {
+        code: KeyCode::Enter,
+        ..
+      }) => {
+        args.commands.claim();
+        args
+          .commands
+          .navigate_to(format!("pdex://type/{}", self.0.to_str()));
       }
+      Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Up(MouseButton::Left),
+        ..
+      }) => {
+        args.commands.claim();
+        args
+          .commands
+          .navigate_to(format!("pdex://type/{}", self.0.to_str()));
+      }
+      _ => {}
     }
   }
 

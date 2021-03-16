@@ -97,6 +97,7 @@ impl Browser {
           crossterm::event::Event::Mouse(m) => Event::Mouse(m),
           _ => return,
         },
+        rect: Rect::default(),
         dex,
         commands: &mut buf,
       });

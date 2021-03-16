@@ -3,14 +3,16 @@
 use std::fmt::Debug;
 
 use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::MouseButton;
+use crossterm::event::MouseEvent;
+use crossterm::event::MouseEventKind;
 
 use tui::layout::Alignment;
 use tui::layout::Constraint;
 use tui::layout::Direction;
-
 use tui::text::Span;
 use tui::text::Spans;
-
 use tui::widgets::Paragraph;
 use tui::widgets::Widget;
 
@@ -64,14 +66,24 @@ impl Component for Hyperlink {
   }
 
   fn process_event(&mut self, args: &mut EventArgs) {
-    if let Event::Key(key) = args.event {
-      match key.code {
-        KeyCode::Enter => {
-          args.commands.claim();
-          args.commands.navigate_to(self.url.clone());
-        }
-        _ => {}
+    match args.event {
+      Event::Key(KeyEvent {
+        code: KeyCode::Enter,
+        ..
+      }) => {
+        args.commands.claim();
+        args.commands.navigate_to(self.url.clone());
       }
+      Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Up(MouseButton::Left),
+        column,
+        row,
+        ..
+      }) => {
+        args.commands.claim();
+        args.commands.navigate_to(self.url.clone());
+      }
+      _ => {}
     }
   }
 

@@ -81,6 +81,7 @@ where
 pub struct EventArgs<'browser> {
   pub is_focused: bool,
   pub event: &'browser Event,
+  pub rect: Rect,
   pub dex: &'browser Dex,
   pub commands: &'browser mut CommandBuffer,
 }

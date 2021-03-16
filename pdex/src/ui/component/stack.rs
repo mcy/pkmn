@@ -1,6 +1,9 @@
 //! A stack of components arranged horizontally or vertically.
 
 use crossterm::event::KeyCode;
+use crossterm::event::MouseButton;
+use crossterm::event::MouseEvent;
+use crossterm::event::MouseEventKind;
 
 use tui::layout::Constraint;
 use tui::layout::Direction;
@@ -154,6 +157,7 @@ impl Component for Stack {
       node.component.process_event(&mut EventArgs {
         is_focused,
         event: args.event,
+        rect: args.rect,
         dex: args.dex,
         commands: args.commands,
       });
@@ -207,6 +211,28 @@ impl Component for Stack {
         if old_val != new_val as usize {
           self.focus_idx = Some(new_val as usize);
           args.commands.claim();
+        }
+      }
+      Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Moved,
+        column,
+        row,
+        ..
+      }) => {
+        // Give focus to anything we happen to mouse over.
+        for (i, node) in self.nodes.iter_mut().enumerate() {
+          if *column < node.last_size.x
+            || *column >= node.last_size.x + node.last_size.width
+            || *row < node.last_size.y
+            || *row >= node.last_size.y + node.last_size.height
+          {
+            continue;
+          }
+
+          if node.component.wants_focus() {
+            self.focus_idx = Some(i);
+            break;
+          }
         }
       }
       _ => {}

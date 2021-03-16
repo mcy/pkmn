@@ -8,7 +8,6 @@ use crate::ui::component::CommandBuffer;
 use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
-
 use crate::ui::component::RenderArgs;
 use crate::ui::navigation::Handler;
 use crate::ui::navigation::Navigation;
@@ -62,6 +61,7 @@ impl Component for Page {
         root.process_event(&mut EventArgs {
           is_focused: args.is_focused,
           event: &Event::Message(message),
+          rect: args.rect,
           dex: args.dex,
           commands: &mut CommandBuffer::new(),
         })
