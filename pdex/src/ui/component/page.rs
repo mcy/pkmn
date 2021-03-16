@@ -38,21 +38,20 @@ struct Node {
 }
 
 impl Stack {
-  pub fn new(
-    direction: Dir,
-    body: impl FnOnce(NodeBuilder) -> Option<NodeBuilder>,
-  ) -> Option<Self> {
-    body(NodeBuilder::new(direction)).map(Into::into)
+  pub fn new(direction: Dir, body: impl FnOnce(&mut Builder)) -> Self {
+    let mut b = Builder::new(direction);
+    body(&mut b);
+    b.into()
   }
 }
 
-pub struct NodeBuilder {
+pub struct Builder {
   direction: Dir,
   nodes: Vec<Node>,
   focus_idx: Option<usize>,
 }
 
-impl NodeBuilder {
+impl Builder {
   fn new(direction: Dir) -> Self {
     Self {
       direction,
@@ -61,43 +60,43 @@ impl NodeBuilder {
     }
   }
 
-  pub fn default_focus(mut self, focus_idx: usize) -> Option<Self> {
+  pub fn default_focus(&mut self, focus_idx: usize) -> &mut Self {
     debug_assert!(focus_idx <= self.nodes.len());
     self.focus_idx = Some(focus_idx);
-    Some(self)
+    self
   }
 
-  pub fn add(mut self, component: impl Component + 'static) -> Option<Self> {
+  pub fn add(&mut self, component: impl Component + 'static) -> &mut Self {
     self.nodes.push(Node {
       size_constraint: None,
       component: Box::new(component),
     });
-    Some(self)
+    self
   }
 
   pub fn add_constrained(
-    mut self,
+    &mut self,
     constraint: Constraint,
     component: impl Component + 'static,
-  ) -> Option<Self> {
+  ) -> &mut Self {
     self.nodes.push(Node {
       size_constraint: Some(constraint),
       component: Box::new(component),
     });
-    Some(self)
+    self
   }
 
   pub fn stack(
-    mut self,
+    &mut self,
     direction: Dir,
-    body: impl FnOnce(Self) -> Option<Self>,
-  ) -> Option<Self> {
-    self.add(Stack::new(direction, body)?)
+    body: impl FnOnce(&mut Self),
+  ) -> &mut Self {
+    self.add(Stack::new(direction, body))
   }
 }
 
-impl From<NodeBuilder> for Stack {
-  fn from(b: NodeBuilder) -> Self {
+impl From<Builder> for Stack {
+  fn from(b: Builder) -> Self {
     Self {
       direction: b.direction,
       nodes: b.nodes,

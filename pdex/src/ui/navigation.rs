@@ -103,15 +103,10 @@ impl Handler {
     }
   }
 
-  pub fn handle(
+  pub fn handle<C: Component + 'static>(
     mut self,
     template: &str,
-    factory: impl Fn(
-        Url,
-        Vec<&str>,
-        HashMap<&str, Option<&str>>,
-        &Dex,
-      ) -> Option<Box<dyn Component>>
+    factory: impl Fn(Url, Vec<&str>, HashMap<&str, Option<&str>>, &Dex) -> Option<C>
       + 'static,
   ) -> Self {
     let url = Url::from(template).unwrap();
@@ -125,7 +120,7 @@ impl Handler {
         })
         .collect(),
       args: url.args().map(|(k, _)| k.to_string()).collect(),
-      factory: Box::new(factory),
+      factory: Box::new(move |a, b, c, d| Some(Box::new(factory(a, b, c, d)?))),
     });
     self
   }

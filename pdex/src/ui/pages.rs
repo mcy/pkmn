@@ -29,70 +29,68 @@ use crate::ui::navigation::Handler;
 pub fn get() -> Handler {
   Handler::new() //
     .handle("pdex://main-menu", |url, _, _, _| {
-      Stack::new(Dir::Vertical, |n| {
-        n.add_constrained(Constraint::Percentage(40), Empty)?
+      Some(Stack::new(Dir::Vertical, |n| {
+        n.add_constrained(Constraint::Percentage(40), Empty)
           .add_constrained(
             Constraint::Length(1),
             Paragraph::new(format!("pdex v{}", env!("CARGO_PKG_VERSION")))
               .alignment(Alignment::Center),
-          )?
-          .add_constrained(Constraint::Length(1), Empty)?
+          )
+          .add_constrained(Constraint::Length(1), Empty)
           .add(
             Hyperlink::new("pdex://pokedex/national")
               .label("National Pokedex")
               .focused_delims((">", "<"))
               .alignment(Alignment::Center),
-          )?
+          )
           .add(
             Hyperlink::new("pdex://pokedex/kanto")
               .label("Kanto Pokedex")
               .focused_delims((">", "<"))
               .alignment(Alignment::Center),
-          )?
+          )
           .add(
             Hyperlink::new("pdex://pokedex/hoenn")
               .label("Hoenn Pokedex")
               .focused_delims((">", "<"))
               .alignment(Alignment::Center),
-          )?
+          )
           .add(
             Hyperlink::new("pdex://pokedex/extended-sinnoh")
               .label("Sinnoh Pokedex")
               .focused_delims((">", "<"))
               .alignment(Alignment::Center),
-          )?
+          )
           .add(
             Hyperlink::new("pdex://focus-test")
               .label("Focus Test")
               .focused_delims((">", "<"))
               .alignment(Alignment::Center),
-          )?
-          .add_constrained(Constraint::Percentage(50), Empty)
-      })
-      .map(|c| Box::new(c) as Box<dyn Component>)
+          )
+          .add_constrained(Constraint::Percentage(50), Empty);
+      }))
     })
     .handle("pdex://pokedex/{}?n", |url, path, args, _| {
-      Stack::new(Dir::Horizontal, |n| {
+      let pokedex = path[0].parse().ok()?;
+      let starting_number = args
+        .get("n")
+        .map(|s| s.unwrap_or("").parse().ok())
+        .unwrap_or(Some(1))?;
+      Some(Stack::new(Dir::Horizontal, |n| {
         n.add_constrained(
           Constraint::Min(0),
-          PokedexDetail::new(
-            path[0].parse().ok()?,
-            args
-              .get("n")
-              .map(|s| s.unwrap_or("").parse().ok())
-              .unwrap_or(Some(1))?,
-          ),
-        )?
+          PokedexDetail::new(pokedex, starting_number),
+        )
         .add_constrained(
           Constraint::Length(40),
-          Listing::new(Pokedex(path[0].parse().ok()?)),
-        )
-      })
-      .map(|c| Box::new(c) as Box<dyn Component>)
+          Listing::new(Pokedex(pokedex)),
+        );
+      }))
     })
     .handle("pdex://pokemon/{}?pokedex", |url, path, args, dex| {
       let species = dex.species.get(path[0])?;
       let default = &species.varieties.iter().find(|v| v.is_default)?.pokemon;
+      let default_name = default.name()?.to_string();
       let pokemon = dex.pokemon.get(default.name()?)?;
 
       let pokedex = args
@@ -119,7 +117,7 @@ pub fn get() -> Handler {
         .unwrap_or(TypeName::Unknown);
       let second = types.get(1).map(|t| t.ty.variant()).flatten();
 
-      Stack::new(Dir::Vertical, |n| {
+      Some(Stack::new(Dir::Vertical, |n| {
         n.add_constrained(
           Constraint::Length(3),
           Tabs::new(vec![
@@ -128,41 +126,35 @@ pub fn get() -> Handler {
             ("Evolution".to_string()),
           ])
           .flavor_text(format!("{}  #{:03}  ", genus, number)),
-        )?
+        )
         .stack(Dir::Flexible, |n| {
-          n.add(PokedexSprite::new(default.name()?.into()))?.stack(
-            Dir::Vertical,
-            |n| {
+          n.add(PokedexSprite::new(default_name))
+            .stack(Dir::Vertical, |n| {
               n.stack(Dir::Horizontal, |n| {
-                let mut n = n.add(TypeLink(first));
+                n.add(TypeLink(first));
                 if let Some(second) = second {
-                  n = n?
-                    .add_constrained(Constraint::Length(2), Empty)?
-                    .add(TypeLink(second))
+                  n.add_constrained(Constraint::Length(2), Empty)
+                    .add(TypeLink(second));
                 }
-                n
-              })
-            },
-          )
-        })
-      })
-      .map(|c| Box::new(c) as Box<dyn Component>)
+              });
+            });
+        });
+      }))
     })
     .handle("pdex://focus-test", |url, _, _, _| {
-      Stack::new(Dir::Vertical, |n| {
-        n.add(TestBox::new())?
-          .add(TestBox::new())?
-          .stack(Dir::Horizontal, |n| {
-            n.add(TestBox::unfocusable())?
-              .stack(Dir::Vertical, |n| {
-                n.add(TestBox::unfocusable())?
-                  .add(TestBox::new())?
-                  .add(TestBox::new())
-              })?
-              .add(TestBox::new())
-          })?
+      Some(Stack::new(Dir::Vertical, |n| {
+        n.add(TestBox::new())
           .add(TestBox::new())
-      })
-      .map(|c| Box::new(c) as Box<dyn Component>)
+          .stack(Dir::Horizontal, |n| {
+            n.add(TestBox::unfocusable())
+              .stack(Dir::Vertical, |n| {
+                n.add(TestBox::unfocusable())
+                  .add(TestBox::new())
+                  .add(TestBox::new());
+              })
+              .add(TestBox::new());
+          })
+          .add(TestBox::new());
+      }))
     })
 }
