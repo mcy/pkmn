@@ -17,7 +17,7 @@ use crate::dex::Dex;
 use crate::ui::component::page::Page;
 use crate::ui::component::CommandBuffer;
 use crate::ui::component::Component;
-use crate::ui::component::Empty;
+
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;

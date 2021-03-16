@@ -1,34 +1,29 @@
 //! Definitions of all pages that `pdex` can display.
 
-use pkmn::model::resource::Name;
 use pkmn::model::text::LanguageName;
 use pkmn::model::PokedexName;
 use pkmn::model::TypeName;
 
 use tui::layout::Alignment;
 use tui::layout::Constraint;
-use tui::style::Modifier;
-use tui::style::Style;
 use tui::widgets::Paragraph;
 
-use crate::ui::component::page::Dir;
-use crate::ui::component::page::Page;
-use crate::ui::component::page::Stack;
+use crate::ui::component::hyperlink::Hyperlink;
+use crate::ui::component::list::Listing;
 use crate::ui::component::pokedex::Pokedex;
 use crate::ui::component::pokedex::PokedexDetail;
 use crate::ui::component::pokedex::PokedexSprite;
 use crate::ui::component::pokedex::TypeLink;
-use crate::ui::component::Component;
+use crate::ui::component::stack::Dir;
+use crate::ui::component::stack::Stack;
+use crate::ui::component::tabs::Tabs;
+use crate::ui::component::testing::TestBox;
 use crate::ui::component::Empty;
-use crate::ui::component::Hyperlink;
-use crate::ui::component::Listing;
-use crate::ui::component::Tabs;
-use crate::ui::component::TestBox;
 use crate::ui::navigation::Handler;
 
 pub fn get() -> Handler {
   Handler::new() //
-    .handle("pdex://main-menu", |url, _, _, _| {
+    .handle("pdex://main-menu", |_url, _, _, _| {
       Some(Stack::new(Dir::Vertical, |n| {
         n.add_constrained(Constraint::Percentage(40), Empty)
           .add_constrained(
@@ -70,7 +65,7 @@ pub fn get() -> Handler {
           .add_constrained(Constraint::Percentage(50), Empty);
       }))
     })
-    .handle("pdex://pokedex/{}?n", |url, path, args, _| {
+    .handle("pdex://pokedex/{}?n", |_url, path, args, _| {
       let pokedex = path[0].parse().ok()?;
       let starting_number = args
         .get("n")
@@ -87,7 +82,7 @@ pub fn get() -> Handler {
         );
       }))
     })
-    .handle("pdex://pokemon/{}?pokedex", |url, path, args, dex| {
+    .handle("pdex://pokemon/{}?pokedex", |_url, path, args, dex| {
       let species = dex.species.get(path[0])?;
       let default = &species.varieties.iter().find(|v| v.is_default)?.pokemon;
       let default_name = default.name()?.to_string();
@@ -141,7 +136,7 @@ pub fn get() -> Handler {
         });
       }))
     })
-    .handle("pdex://focus-test", |url, _, _, _| {
+    .handle("pdex://focus-test", |_url, _, _, _| {
       Some(Stack::new(Dir::Vertical, |n| {
         n.add(TestBox::new())
           .add(TestBox::new())

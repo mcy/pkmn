@@ -16,9 +16,9 @@ use crossterm::event::KeyCode;
 
 use tui::layout::Constraint;
 use tui::layout::Direction;
-use tui::style::Color;
+
 use tui::style::Modifier;
-use tui::style::Style;
+
 use tui::text::Span;
 use tui::text::Spans;
 use tui::text::Text;
@@ -26,16 +26,16 @@ use tui::widgets::Paragraph;
 
 use crate::dex::Dex;
 
+use crate::ui::component::image::Png;
+use crate::ui::component::list::Listable;
+use crate::ui::component::list::PositionUpdate;
 use crate::ui::component::page::Page;
+
 use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::LayoutHintArgs;
-use crate::ui::component::ListPositionUpdate;
-use crate::ui::component::Listable;
-use crate::ui::component::Png;
 use crate::ui::component::RenderArgs;
-use crate::ui::component::Tabs;
 use crate::ui::widgets::Spinner;
 
 #[derive(Clone, Debug)]
@@ -58,7 +58,7 @@ impl PokedexDetail {
 impl Component for PokedexDetail {
   fn process_event(&mut self, args: &mut EventArgs) {
     if let Event::Message(m) = &args.event {
-      if let Some(update) = m.downcast_ref::<ListPositionUpdate<Pokedex>>() {
+      if let Some(update) = m.downcast_ref::<PositionUpdate<Pokedex>>() {
         self.number = update.index as u32 + 1;
       }
     }
@@ -283,7 +283,7 @@ impl Listable for Pokedex {
     Some((entry.number, species, pokemon))
   }
 
-  fn url_of(&self, item: &Self::Item) -> Option<String> {
+  fn url_of(&self, _item: &Self::Item) -> Option<String> {
     None
   }
 
