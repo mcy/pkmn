@@ -174,7 +174,8 @@ impl Component for Stack {
       Event::Key(key) => {
         use Dir::*;
         use KeyCode::*;
-        let is_vertical = args.rect.height as f64 * args.style_sheet.font_height
+        let is_vertical = args.rect.height as f64
+          * args.style_sheet.font_height
           > args.rect.width as f64;
         let delta = match (self.direction, key.code) {
           (Vertical, Up) => -1,
@@ -247,7 +248,7 @@ impl Component for Stack {
       Dir::Vertical => Direction::Vertical,
       Dir::Flexible
         if args.rect.height as f64 * args.style_sheet.font_height
-          > args.rect.width as f64  =>
+          > args.rect.width as f64 =>
       {
         Direction::Vertical
       }

@@ -8,8 +8,8 @@ use std::sync::Arc;
 use pkmn::model::resource::Name;
 use pkmn::model::LanguageName;
 use pkmn::model::PokedexName;
-use pkmn::model::Pokemon;
 use pkmn::model::Species;
+use pkmn::model::Type;
 use pkmn::model::TypeName;
 
 use crossterm::event::KeyCode;
@@ -40,6 +40,8 @@ use crate::ui::component::LayoutHintArgs;
 use crate::ui::component::RenderArgs;
 use crate::ui::widgets::Spinner;
 
+/// A component comprising the main window of the Pokedex, which is essentially
+/// a wrapper over the `pdex://pokedex/<species>` pages
 #[derive(Clone, Debug)]
 pub struct PokedexDetail {
   pokedex: PokedexName,
@@ -101,6 +103,9 @@ impl Component for PokedexDetail {
   }
 }
 
+/// Displays the sprite of a Pokemon.
+// TODO: Make this display *all* available sprites, maybe with some kind of
+// scroller?
 #[derive(Clone, Debug)]
 pub struct PokedexSprite {
   name: String,
@@ -143,6 +148,8 @@ impl Component for PokedexSprite {
   }
 }
 
+/// A hyperlinked box that displays a given type, which redirects to
+/// `pdex://type/<type>`.
 #[derive(Clone, Debug)]
 pub struct TypeLink(pub TypeName);
 
@@ -265,12 +272,20 @@ impl Component for TypeLink {
   }
 }
 
-/// The pokedex component.
+/// A [`Listable`] that shows all pokemon belonging to a particular Pokedex.
 #[derive(Clone, Debug)]
 pub struct Pokedex(pub PokedexName);
 
+#[derive(Clone, Debug)]
+pub struct PokedexItem {
+  number: u32,
+  species: Arc<Species>,
+  first_type: Arc<Type>,
+  second_type: Option<Arc<Type>>,
+}
+
 impl Listable for Pokedex {
-  type Item = (u32, Arc<Species>, Arc<Pokemon>);
+  type Item = PokedexItem;
 
   fn count(&mut self, dex: &Dex) -> Option<usize> {
     Some(dex.pokedexes.get_named(self.0)?.entries.len())
@@ -279,36 +294,18 @@ impl Listable for Pokedex {
   fn get_item(&mut self, index: usize, dex: &Dex) -> Option<Self::Item> {
     // TODO: ummm this is quadratic. This should probably be a hashmap or vector
     // in `pkmn`.
-    let number = index + 1;
+    let number = index as u32 + 1;
 
     let pokedex = dex.pokedexes.get_named(self.0)?;
     let entry = pokedex
       .entries
       .iter()
-      .find(|e| e.number as usize == number)?;
+      .find(|e| e.number == number)?;
 
     let species = dex.species.get(entry.species.name()?)?;
 
     let default = &species.varieties.iter().find(|v| v.is_default)?.pokemon;
     let pokemon = dex.pokemon.get(default.name()?)?;
-
-    Some((entry.number, species, pokemon))
-  }
-
-  fn url_of(&self, _item: &Self::Item) -> Option<String> {
-    None
-  }
-
-  fn format<'a>(
-    &'a self,
-    (num, species, pokemon): &'a Self::Item,
-    args: &RenderArgs,
-  ) -> Text<'a> {
-    let name = species
-      .localized_names
-      .get(LanguageName::English)
-      .unwrap_or("???");
-
     let mut types = pokemon
       .types
       .iter()
@@ -316,17 +313,66 @@ impl Listable for Pokedex {
       .collect::<Vec<_>>();
     types.sort_by_key(|&(i, ..)| i);
 
-    let mut spans =
-      Spans::from(vec![Span::raw(format!("#{:03} {:12} ", num, name))]);
+    let (first_type, second_type) = match &*types {
+      &[(_, first)] => (dex.types.get_named(first)?, None),
+      &[(_, first), (_, second)] => (
+        dex.types.get_named(first)?,
+        Some(dex.types.get_named(second)?),
+      ),
+      _ => return None,
+    };
 
-    for (i, &(_, t)) in types.iter().enumerate() {
-      // TODO: Localize
-      if i != 0 {
-        spans.0.push(Span::raw(" · "));
-      }
+    Some(PokedexItem {
+      number,
+      species,
+      first_type,
+      second_type,
+    })
+  }
+
+  fn url_of(&self, _item: &Self::Item) -> Option<String> {
+    None
+  }
+
+  fn format<'a>(&'a self, item: &'a Self::Item, args: &RenderArgs) -> Text<'a> {
+    let name = item
+      .species
+      .localized_names
+      .get(LanguageName::English)
+      .unwrap_or("???");
+
+    let mut spans =
+      Spans::from(vec![Span::raw(format!("#{:03} {:12} ", item.number, name))]);
+
+    let first_type_name = item
+      .first_type
+      .localized_names
+      .get(LanguageName::English)
+      .unwrap_or("???");
+
+    spans.0.push(Span::styled(
+      first_type_name,
+      Style::default().fg(
+        args
+          .style_sheet
+          .type_colors
+          .get(item.first_type.name.variant().unwrap_or(TypeName::Unknown)),
+      ),
+    ));
+    if let Some(second_type) = &item.second_type {
+      let second_type_name = second_type
+        .localized_names
+        .get(LanguageName::English)
+        .unwrap_or("???");
+      spans.0.push(Span::raw(" · "));
       spans.0.push(Span::styled(
-        format!("{:?}", t),
-        Style::default().fg(args.style_sheet.type_colors.get(t)),
+        second_type_name,
+        Style::default().fg(
+          args
+            .style_sheet
+            .type_colors
+            .get(second_type.name.variant().unwrap_or(TypeName::Unknown)),
+        ),
       ));
     }
 
