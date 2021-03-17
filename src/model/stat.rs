@@ -10,6 +10,7 @@ use crate::model::mov::Move;
 use crate::model::nature::Characteristic;
 use crate::model::nature::Nature;
 use crate::model::resource::Resource;
+use crate::model::resource::NameOf;
 use crate::model::text::Localized;
 
 /// A Pokemon battle statistic.
@@ -18,7 +19,7 @@ pub struct Stat {
   /// This stat's numeric ID.
   pub id: u32,
   /// This stat's API name.
-  pub name: String,
+  pub name: NameOf<Self>,
   /// The name of this stat in various languages.
   #[serde(rename = "names")]
   pub localized_names: Localized,
@@ -42,6 +43,31 @@ pub struct Stat {
   /// Moves which can affect this stat in battle.
   #[serde(rename = "affecting_moves")]
   pub moves: Vec<MoveEffects>,
+}
+
+well_known! {
+  /// A name for a [`Stat`].
+  #[allow(missing_docs)]
+  pub enum StatName for Stat {
+    /// Hit Points determine how much damage a Pokemon can take in battle.
+    HitPoints => "hp",
+    /// Attack determines the power of a Pokemon's physical moves.
+    Attack => "attack",
+    /// Defense determines the effectiveness of a physical move on a Pokemon.
+    Defence => "defence",
+    /// Special Attack determines the power of a Pokemon's special moves.
+    SpAttack => "special-attack",
+    /// Special Defense determines the effectiveness of a special move on a
+    /// Pokemon.
+    SpDefense => "special-defense",
+    /// Speed determines which Pokemon moves first in a turn.
+    Speed => "speed",
+
+    /// Accuracy determines how likely a Pokemon is to land a move in battle.
+    Accuracy => "accuracy",
+    /// Evasion determines how likely a Pokemon is to evade a move in battle.
+    Evasion => "evasion",
+  }
 }
 
 /// Natures which affect the growth of a particular stat.

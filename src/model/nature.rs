@@ -10,6 +10,7 @@ use crate::model::stat::pokeathalon;
 use crate::model::stat::Stat;
 use crate::model::text::Localized;
 use crate::model::Percent;
+use crate::model::resource::NamedResource;
 
 text_field!(description: Desc);
 
@@ -26,10 +27,10 @@ pub struct Nature {
 
   /// The statistic that this nature causes to grow worse.
   #[serde(rename = "decreased_stat")]
-  pub decreases: Resource<Stat>,
+  pub decreases: NamedResource<Stat>,
   /// The statistic that this nature causes to grow better.
   #[serde(rename = "increased_stat")]
-  pub increases: Resource<Stat>,
+  pub increases: NamedResource<Stat>,
 
   /// The berry flavor Pokemon with this nature hate.
   pub hates_flavor: Resource<Flavor>,
@@ -106,7 +107,7 @@ pub struct Characteristic {
   pub descriptions: Localized<Desc>,
 
   /// The statistic this characteristic is triggered by.
-  pub highest_stat: Resource<Stat>,
+  pub highest_stat: NamedResource<Stat>,
   /// This characteristic's gene modulus.
   pub gene_modulo: u32,
   /// Possible values of `highest_stat`'s IV that would result in this

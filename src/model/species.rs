@@ -196,7 +196,7 @@ pub struct BaseStat {
   /// The base stat value.
   pub base_stat: u32,
   /// The corresponding statistic.
-  pub stat: Resource<Stat>,
+  pub stat: NamedResource<Stat>,
 }
 
 /// A [`Pokemon`]'s sprite table.
