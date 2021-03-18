@@ -1,5 +1,9 @@
 //! A stack of components arranged horizontally or vertically.
 
+use std::convert::TryFrom;
+use std::convert::TryInto;
+use std::fmt;
+
 use crossterm::event::KeyCode;
 use crossterm::event::MouseEvent;
 use crossterm::event::MouseEventKind;
@@ -17,9 +21,9 @@ use crate::ui::component::RenderArgs;
 
 /// A stack of components.
 #[derive(Clone, Debug)]
-pub struct Stack {
+pub struct Stack<Nodes = Vec<Node>> {
   direction: Dir,
-  nodes: Vec<Node>,
+  nodes: Nodes,
   focus_idx: Option<usize>,
 }
 
@@ -35,7 +39,7 @@ pub enum Dir {
 }
 
 #[derive(Clone, Debug)]
-struct Node {
+pub struct Node {
   size_constraint: Option<Constraint>,
   last_size: Rect,
   component: Box<dyn Component>,
@@ -43,9 +47,21 @@ struct Node {
 
 impl Stack {
   pub fn new(direction: Dir, body: impl FnOnce(&mut Builder)) -> Self {
+    Self::try_new(direction, body).expect("cannot happen due to From impl")
+  }
+}
+
+impl<Nodes> Stack<Nodes>
+where
+  Nodes: TryFrom<Vec<Node>>,
+{
+  pub fn try_new(
+    direction: Dir,
+    body: impl FnOnce(&mut Builder),
+  ) -> Result<Self, Nodes::Error> {
     let mut b = Builder::new(direction);
     body(&mut b);
-    b.into()
+    b.try_into()
   }
 }
 
@@ -104,27 +120,38 @@ impl Builder {
   }
 }
 
-impl From<Builder> for Stack {
-  fn from(b: Builder) -> Self {
-    Self {
+impl<Nodes> TryFrom<Builder> for Stack<Nodes>
+where
+  Nodes: TryFrom<Vec<Node>>,
+{
+  type Error = Nodes::Error;
+  fn try_from(b: Builder) -> Result<Self, Self::Error> {
+    Ok(Self {
       direction: b.direction,
-      nodes: b.nodes,
+      nodes: b.nodes.try_into()?,
       focus_idx: b.focus_idx,
-    }
+    })
   }
 }
 
-impl Component for Stack {
+impl<Nodes> Component for Stack<Nodes>
+where
+  Nodes: AsRef<[Node]> + AsMut<[Node]> + Clone + fmt::Debug + 'static,
+{
   fn wants_all_events(&self) -> bool {
     true
   }
 
   fn wants_focus(&self) -> bool {
-    self.nodes.iter().any(|n| n.component.wants_focus())
+    self
+      .nodes
+      .as_ref()
+      .iter()
+      .any(|n| n.component.wants_focus())
   }
 
   fn process_event(&mut self, args: &mut EventArgs) {
-    for (i, node) in self.nodes.iter_mut().enumerate() {
+    for (i, node) in self.nodes.as_mut().iter_mut().enumerate() {
       let is_focused = args.is_focused && self.focus_idx == Some(i);
       match args.event {
         Event::Key(_) if !node.component.wants_all_events() => {
@@ -198,7 +225,7 @@ impl Component for Stack {
             return;
           }
 
-          match self.nodes.get(new_val as usize) {
+          match self.nodes.as_ref().get(new_val as usize) {
             // Do not focus on zero-sized elements, if we can avoid it.
             Some(node)
               if node.last_size.width == 0 || node.last_size.height == 0 =>
@@ -223,7 +250,7 @@ impl Component for Stack {
         ..
       }) => {
         // Give focus to anything we happen to mouse over.
-        for (i, node) in self.nodes.iter_mut().enumerate() {
+        for (i, node) in self.nodes.as_mut().iter_mut().enumerate() {
           if *column < node.last_size.x
             || *column >= node.last_size.x + node.last_size.width
             || *row < node.last_size.y
@@ -256,8 +283,8 @@ impl Component for Stack {
     };
 
     let mut constraints = Vec::new();
-    let len = self.nodes.len();
-    for node in &mut self.nodes {
+    let len = self.nodes.as_ref().len();
+    for node in self.nodes.as_mut() {
       let constraint = if let Some(c) = node.size_constraint {
         c
       } else if let Some(c) = node.component.layout_hint(&LayoutHintArgs {
@@ -281,6 +308,7 @@ impl Component for Stack {
     if self.focus_idx.is_none() {
       self.focus_idx = self
         .nodes
+        .as_ref()
         .iter()
         .enumerate()
         .find(|(_, node)| node.component.wants_focus())
@@ -292,8 +320,12 @@ impl Component for Stack {
       .constraints(constraints)
       .split(args.rect);
 
-    for (i, (node, rect)) in
-      self.nodes.iter_mut().zip(layout.into_iter()).enumerate()
+    for (i, (node, rect)) in self
+      .nodes
+      .as_mut()
+      .iter_mut()
+      .zip(layout.into_iter())
+      .enumerate()
     {
       node.last_size = rect;
       node.component.render(&mut RenderArgs {

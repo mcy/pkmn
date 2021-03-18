@@ -1,5 +1,7 @@
 //! Definitions of all pages that `pdex` can display.
 
+use std::sync::Arc;
+
 use pkmn::model::text::LanguageName;
 use pkmn::model::PokedexName;
 use pkmn::model::TypeName;
@@ -13,6 +15,7 @@ use crate::ui::component::list::Listing;
 use crate::ui::component::pokedex::Pokedex;
 use crate::ui::component::pokedex::PokedexDetail;
 use crate::ui::component::pokedex::PokedexSprite;
+use crate::ui::component::pokedex::StatsView;
 use crate::ui::component::pokedex::TypeLink;
 use crate::ui::component::stack::Dir;
 use crate::ui::component::stack::Stack;
@@ -132,7 +135,8 @@ pub fn get() -> Handler {
                   n.add_constrained(Constraint::Length(2), Empty)
                     .add(TypeLink(second));
                 }
-              });
+              })
+              .add(StatsView::new(Arc::clone(&pokemon)));
             });
         });
       }))

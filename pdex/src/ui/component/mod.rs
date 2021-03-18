@@ -9,6 +9,7 @@ use std::sync::Arc;
 use crossterm::event::KeyEvent;
 use crossterm::event::MouseEvent;
 
+use pkmn::model::StatName;
 use pkmn::model::TypeName;
 
 use tui::buffer::Buffer;
@@ -183,6 +184,7 @@ pub struct StyleSheet {
   pub unfocused: Style,
   pub selected: Style,
   pub type_colors: TypeColors,
+  pub stat_colors: StatColors,
 
   /// The ratio of a font glyph's width to its height, useful for when we want
   /// to compare hights and widths as they would be measured in pixels rather
@@ -197,6 +199,7 @@ impl Default for StyleSheet {
       unfocused: Style::default().fg(Color::Gray),
       selected: Style::default().add_modifier(Modifier::BOLD),
       type_colors: TypeColors::default(),
+      stat_colors: StatColors::default(),
       font_height: 2.1, // Eyeballed value.
     }
   }
@@ -279,6 +282,51 @@ impl TypeColors {
       TypeName::Fairy => self.fairy,
       TypeName::Unknown => self.unknown,
       TypeName::Shadow => self.shadow,
+    }
+  }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct StatColors {
+  pub hit_points: Color,
+  pub attack: Color,
+  pub defense: Color,
+  pub sp_attack: Color,
+  pub sp_defense: Color,
+  pub speed: Color,
+
+  pub accuracy: Color,
+  pub evasion: Color,
+}
+
+impl Default for StatColors {
+  fn default() -> Self {
+    Self {
+      hit_points: Color::Rgb(0xff, 0x00, 0x00),
+      attack: Color::Rgb(0xf0, 0x80, 0x30),
+      defense: Color::Rgb(0xf8, 0xd0, 0x30),
+      sp_attack: Color::Rgb(0x68, 0x90, 0xf0),
+      sp_defense: Color::Rgb(0x78, 0xc8, 0x50),
+      speed: Color::Rgb(0xf8, 0x58, 0x88),
+
+      accuracy: Color::Rgb(0x58, 0xf8, 0xf6),
+      evasion: Color::Rgb(0xae, 0x58, 0xf8),
+    }
+  }
+}
+
+impl StatColors {
+  pub fn get(self, stat: StatName) -> Color {
+    match stat {
+      StatName::HitPoints => self.hit_points,
+      StatName::Attack => self.attack,
+      StatName::Defense => self.defense,
+      StatName::SpAttack => self.sp_attack,
+      StatName::SpDefense => self.sp_defense,
+      StatName::Speed => self.speed,
+
+      StatName::Accuracy => self.accuracy,
+      StatName::Evasion => self.evasion,
     }
   }
 }

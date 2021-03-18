@@ -17,6 +17,7 @@ use pkmn::api::Blob;
 use pkmn::api::Endpoint;
 use pkmn::model::resource::Name;
 use pkmn::model::resource::Named;
+use pkmn::model::Nature;
 use pkmn::model::Pokedex;
 use pkmn::model::Pokemon;
 use pkmn::model::Species;
@@ -25,7 +26,7 @@ use pkmn::Api;
 
 pub struct Resources<T> {
   api: Arc<Api>,
-  names: Arc<(AtomicBool, Mutex<Option<Arc<[String]>>>)>,
+  names: Arc<(AtomicBool, Mutex<Option<Arc<[Arc<T>]>>>)>,
   table: Arc<DashMap<String, Option<Arc<T>>>>,
   error_sink: mpsc::Sender<api::Error>,
 }
@@ -71,7 +72,7 @@ impl<T: Endpoint> Resources<T> {
     self.get(name.to_str())
   }
 
-  pub fn names(&self) -> Option<Arc<[String]>> {
+  pub fn all(&self) -> Option<Arc<[Arc<T>]>> {
     // Don't do anything if there's a download thread running.
     if self.names.0.load(Ordering::SeqCst) {
       return None;
@@ -89,20 +90,23 @@ impl<T: Endpoint> Resources<T> {
     let api = Arc::clone(&self.api);
     let slot = Arc::clone(&self.names);
     let error_sink = self.error_sink.clone();
-    let mut names = Vec::new();
+    let mut values = Vec::new();
     thread::spawn(move || {
       let mut listing = api.listing_of::<T>(64);
       loop {
         match listing.advance() {
           Ok(Some(results)) => {
             for result in &*results {
-              if let Some(name) = result.name() {
-                names.push(name.to_string())
+              match result.load(&api) {
+                Ok(x) => values.push(x),
+                Err(e) => {
+                  let _ = error_sink.send(e);
+                }
               }
             }
           }
           Ok(None) => {
-            *slot.1.lock().unwrap() = Some(names.into_boxed_slice().into());
+            *slot.1.lock().unwrap() = Some(values.into_boxed_slice().into());
             break;
           }
           Err(e) => {
@@ -126,6 +130,7 @@ pub struct Dex {
   pub pokemon: Resources<Pokemon>,
   pub pokedexes: Resources<Pokedex>,
   pub types: Resources<Type>,
+  pub natures: Resources<Nature>,
 
   api: Arc<Api>,
   error_sink: mpsc::Sender<api::Error>,
@@ -139,6 +144,7 @@ impl Dex {
       pokemon: Resources::new(Arc::clone(&api), error_sink.clone()),
       pokedexes: Resources::new(Arc::clone(&api), error_sink.clone()),
       types: Resources::new(Arc::clone(&api), error_sink.clone()),
+      natures: Resources::new(Arc::clone(&api), error_sink.clone()),
 
       api,
       error_sink,
