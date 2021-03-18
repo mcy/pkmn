@@ -30,6 +30,7 @@ pub mod list;
 pub mod page;
 pub mod pokedex;
 pub mod stack;
+pub mod stats;
 pub mod tabs;
 pub mod testing;
 
