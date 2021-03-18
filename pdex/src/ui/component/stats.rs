@@ -19,21 +19,19 @@ use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
+use crate::util::SelectedVec;
 
 /// A view of a Pokemon's battle statistics, including its base stats and
 /// a built in IV/EV calculator.
 #[derive(Clone, Debug)]
 pub struct StatsView {
   pokemon: Arc<Pokemon>,
-  stats: Option<Vec<StatInfo>>,
-
-  focus_line: u8,
-  focus_type: StatFocusType,
-  edit_in_progress: bool,
+  stats: SelectedVec<StatInfo>,
+  natures: SelectedVec<Arc<Nature>>,
   level: u8,
 
-  natures: Option<Vec<Arc<Nature>>>,
-  selected_nature: usize,
+  focus_type: StatFocusType,
+  edit_in_progress: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -69,44 +67,44 @@ impl StatsView {
   pub fn new(pokemon: Arc<Pokemon>) -> Self {
     Self {
       pokemon,
-      stats: None,
-      focus_line: 0,
+      stats: SelectedVec::new(),
+      natures: SelectedVec::new(),
+      level: 100,
+
       focus_type: StatFocusType::Level,
       edit_in_progress: false,
-      level: 100,
-      natures: None,
-      selected_nature: 0,
     }
   }
 
   fn modify_selected_value(&mut self, f: impl FnOnce(u8) -> u8) {
     let editing = self.edit_in_progress;
-    match (self.focus_type, &mut self.stats) {
-      (StatFocusType::Level, _) => {
+    match self.focus_type {
+      (StatFocusType::Level) => {
         self.level = f(if !editing { 0 } else { self.level }).clamp(1, 100)
       }
-      (StatFocusType::Iv, Some(stats)) => {
-        stats
-          .get_mut(self.focus_line as usize)
+
+      (StatFocusType::Iv) => {
+        self
+          .stats.selected_mut()
           .map(|s| s.iv = f(if !editing { 0 } else { s.iv }).clamp(0, 31));
       }
-      (StatFocusType::Ev, Some(stats)) => {
-        // Note that we need to skip the stat we're modifying, so that the old
-        // value doesn't screw with the "leftovers" computation.
-        let focus_line = self.focus_line as usize;
-        let sum: u16 = stats
-          .iter()
-          .enumerate()
-          .filter(|&(i, _)| i != focus_line)
-          .map(|(_, s)| s.ev as u16)
-          .sum();
-        let spare = 510u16.saturating_sub(sum).min(255) as u8;
-        stats
-          .get_mut(focus_line)
+
+      (StatFocusType::Ev) => {
+        let sum: u16 = self.stats.iter().map(|s| s.ev as u16).sum();
+        let spare = 510u16
+          // Note that we need to skip the stat we're modifying, so that the old
+          // value doesn't screw with the "leftovers" computation.
+          .saturating_sub(sum - self.stats.selected().map(|s| s.ev as u16).unwrap_or(0))
+          .min(255) as u8;
+
+        self
+          .stats
+          .selected_mut()
           .map(|s| s.ev = f(if !editing { 0 } else { s.ev }).clamp(0, spare));
       }
       _ => {}
     }
+
     self.edit_in_progress = true;
   }
 }
@@ -136,19 +134,11 @@ impl Component for StatsView {
         KeyCode::Up => {
           self.edit_in_progress = false;
           match self.focus_type {
-            StatFocusType::Ev | StatFocusType::Iv => {
-              let new_idx = self.focus_line.saturating_sub(1);
-              if new_idx != self.focus_line {
-                self.focus_line = new_idx;
-                args.commands.claim();
-              }
+            StatFocusType::Ev | StatFocusType::Iv if self.stats.shift(-1) => {
+              args.commands.claim();
             }
-            StatFocusType::Nature => {
-              let new_idx = self.selected_nature.saturating_sub(1);
-              if new_idx != self.selected_nature {
-                self.selected_nature = new_idx;
-                args.commands.claim();
-              }
+            StatFocusType::Nature if self.natures.shift(-1) => {
+              args.commands.claim();
             }
             _ => {}
           }
@@ -156,30 +146,11 @@ impl Component for StatsView {
         KeyCode::Down => {
           self.edit_in_progress = false;
           match self.focus_type {
-            StatFocusType::Ev | StatFocusType::Iv => {
-              let max_idx = self
-                .stats
-                .as_ref()
-                .map(|s| s.len().saturating_sub(1))
-                .unwrap_or_default();
-              let new_idx =
-                self.focus_line.saturating_add(1).min(max_idx as u8);
-              if new_idx != self.focus_line {
-                self.focus_line = new_idx;
-                args.commands.claim();
-              }
+            StatFocusType::Ev | StatFocusType::Iv if self.stats.shift(1) => {
+              args.commands.claim();
             }
-            StatFocusType::Nature => {
-              let max_idx = self
-                .natures
-                .as_ref()
-                .map(|s| s.len().saturating_sub(1))
-                .unwrap_or_default();
-              let new_idx = self.selected_nature.saturating_add(1).min(max_idx);
-              if new_idx != self.selected_nature {
-                self.selected_nature = new_idx;
-                args.commands.claim();
-              }
+            StatFocusType::Nature if self.natures.shift(1) => {
+              args.commands.claim();
             }
             _ => {}
           }
@@ -209,8 +180,8 @@ impl Component for StatsView {
     }
 
     let pokemon = &self.pokemon;
-    let stats = self.stats.get_or_insert_with(|| {
-      let mut stats = pokemon
+    if self.stats.is_empty() {
+      self.stats = pokemon
         .stats
         .iter()
         .map(|base| StatInfo {
@@ -218,35 +189,34 @@ impl Component for StatsView {
           iv: 31,
           ev: 0,
         })
-        .collect::<Vec<_>>();
-      stats.sort_by_key(|s| s.base.stat.name().variant());
-      stats
-    });
-
-    let natures = match &mut self.natures {
-      Some(natures) => natures,
-      None => match args.dex.natures.all() {
-        Some(natures) => {
-          let mut natures = natures.iter().cloned().collect::<Vec<_>>();
-          /// This is O(n^2 lg n), but n is small (the number of Pokemon
-          /// natures).
-          natures.sort_by(|n1, n2| {
-            let n1 = n1
-              .localized_names
-              .get(LanguageName::English)
-              .unwrap_or("???");
-            let n2 = n2
-              .localized_names
-              .get(LanguageName::English)
-              .unwrap_or("???");
-            n1.cmp(n2)
-          });
-          self.natures.get_or_insert(natures)
-        }
+        .collect();
+      self.stats.sort_by_key(|s| s.base.stat.name().variant());
+    }
+    if self.natures.is_empty() {
+      self.natures = match args.dex.natures.all() {
+        Some(natures) => natures.iter().cloned().collect(),
         None => return,
-      },
+      };
+
+      // This is O(n^2 lg n), but n is small (the number of Pokemon
+      // natures).
+      self.natures.sort_by(|n1, n2| {
+        let n1 = n1
+          .localized_names
+          .get(LanguageName::English)
+          .unwrap_or("???");
+        let n2 = n2
+          .localized_names
+          .get(LanguageName::English)
+          .unwrap_or("???");
+        n1.cmp(n2)
+      });
+    }
+
+    let nature = match self.natures.selected() {
+      Some(n) => n,
+      None => return,
     };
-    let nature = &natures[self.selected_nature];
 
     let style = if args.is_focused {
       args.style_sheet.unfocused.patch(args.style_sheet.focused)
@@ -264,6 +234,7 @@ impl Component for StatsView {
     let data_width = 9 + 16;
     let bar_width = args.rect.width.saturating_sub(data_width);
 
+    // This function is a bit grody and aught to be simplified.
     let focus_type = self.focus_type;
     let is_focused = args.is_focused;
     let selected = args.style_sheet.selected;
@@ -313,8 +284,7 @@ impl Component for StatsView {
     let y_max = y + args.rect.height;
     let mut total = 0;
     let mut evs = Vec::new();
-    for (i, StatInfo { base: stat, iv, ev }) in stats.iter().enumerate() {
-      let i = i as u8;
+    for (i, StatInfo { base: stat, iv, ev }) in self.stats.iter().enumerate() {
       if y >= y_max {
         return;
       }
@@ -347,13 +317,13 @@ impl Component for StatsView {
       let iv = *iv as u32;
       let iv_expr = Span::styled(
         format!("{:3}", iv),
-        focus_style(StatFocusType::Iv, i == self.focus_line),
+        focus_style(StatFocusType::Iv, i == self.stats.selection()),
       );
 
       let ev = *ev as u32;
       let ev_expr = Span::styled(
         format!("{:3}", ev),
-        focus_style(StatFocusType::Ev, i == self.focus_line),
+        focus_style(StatFocusType::Ev, i == self.stats.selection()),
       );
 
       let (nature_multiplier, multiplier_icon) = if nature
@@ -445,13 +415,13 @@ impl Component for StatsView {
 
     let left_over = (bar_width + 16).saturating_sub(evs_len as u16);
     if left_over > 0 {
-      let nature = natures
-        .get(self.selected_nature)
-        .map(|n| n.localized_names.get(LanguageName::English))
-        .flatten()
-        .unwrap_or("???");
-      let nature =
-        Span::styled(nature, focus_style(StatFocusType::Nature, true));
+      let nature = Span::styled(
+        nature
+          .localized_names
+          .get(LanguageName::English)
+          .unwrap_or("???"),
+        focus_style(StatFocusType::Nature, true),
+      );
       args.output.set_span(
         args.rect.x
           + 9

@@ -18,21 +18,20 @@ use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
+use crate::util::SelectedVec;
 
 #[derive(Clone, Debug)]
 pub struct Tabs {
-  tabs: Vec<String>,
+  tabs: SelectedVec<String>,
   rendered_boundaries: Vec<u16>,
-  selected: usize,
   flavor_text: Spans<'static>,
 }
 
 impl Tabs {
   pub fn new(labels: Vec<String>) -> Self {
     Self {
-      tabs: labels,
+      tabs: labels.into(),
       rendered_boundaries: Vec::new(),
-      selected: 0,
       flavor_text: Spans::default(),
     }
   }
@@ -52,19 +51,12 @@ impl Component for Tabs {
     match args.event {
       Event::Key(k) => match k.code {
         KeyCode::Left => {
-          let new_idx = self.selected.saturating_sub(1);
-          if new_idx != self.selected {
-            self.selected = new_idx;
+          if self.tabs.shift(-1) {
             args.commands.claim();
           }
         }
         KeyCode::Right => {
-          let new_idx = self
-            .selected
-            .saturating_add(1)
-            .min(self.tabs.len().saturating_sub(1));
-          if new_idx != self.selected {
-            self.selected = new_idx;
+          if self.tabs.shift(1) {
             args.commands.claim();
           }
         }
@@ -76,7 +68,7 @@ impl Component for Tabs {
         column,
         ..
       }) => {
-        self.selected = match self.rendered_boundaries.binary_search(column) {
+        let new_index = match self.rendered_boundaries.binary_search(column) {
           Err(index)
             if index == 0 || index == self.rendered_boundaries.len() =>
           {
@@ -84,6 +76,10 @@ impl Component for Tabs {
           }
           Ok(index) => index.saturating_sub(1),
           Err(index) => index.saturating_sub(1),
+        };
+
+        if self.tabs.select(new_index) {
+          args.commands.claim()
         }
       }
       _ => {}
@@ -108,7 +104,7 @@ impl Component for Tabs {
     let mut middle = vec![Span::styled("  ", style)];
     let mut bottom = vec![Span::styled("▔▔", style)];
     for (i, label) in self.tabs.iter().enumerate() {
-      if i < self.selected {
+      if i < self.tabs.selection() {
         let span = Span::styled(format!("╱  {} ", label), style);
         let width = span.width();
         self.rendered_boundaries.push(
@@ -127,7 +123,7 @@ impl Component for Tabs {
           iter::repeat('▔').take(width).collect::<String>(),
           style,
         ));
-      } else if i > self.selected {
+      } else if i > self.tabs.selection() {
         let span = Span::styled(format!(" {}  ╲", label), style);
         let width = span.width();
         self.rendered_boundaries.push(

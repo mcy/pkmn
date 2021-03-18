@@ -26,6 +26,7 @@ use tui::Terminal;
 mod dex;
 mod download;
 mod ui;
+mod util;
 
 fn main() -> Result<(), crossterm::ErrorKind> {
   crossterm::terminal::enable_raw_mode()?;

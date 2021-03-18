@@ -18,6 +18,7 @@ use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
 use crate::ui::widgets::ScrollBar;
 use crate::ui::widgets::Spinner;
+use crate::util::SelectedVec;
 
 /// A type that generates lazily-loaded items.
 pub trait Listable {
@@ -37,8 +38,7 @@ pub struct PositionUpdate<L> {
 #[derive(Clone, Debug)]
 pub struct Listing<L: Listable> {
   list: L,
-  items: Vec<Option<L::Item>>,
-  index: usize,
+  items: SelectedVec<Option<L::Item>>,
   offset: usize,
   // Corresponds to which item in `items` was rendered at which Y height in
   // this list, relative to the top.
@@ -49,15 +49,15 @@ impl<L: Listable> Listing<L> {
   pub fn new(list: L) -> Self {
     Self {
       list,
-      items: Vec::new(),
-      index: 0,
+      items: SelectedVec::new(),
+
       offset: 0,
       rendered_items_by_y: Vec::new(),
     }
   }
 
   pub fn selected(&self) -> Option<&L::Item> {
-    self.items.get(self.index).map(Option::as_ref).flatten()
+    self.items.selected().map(Option::as_ref).flatten()
   }
 }
 
@@ -71,66 +71,96 @@ where
   }
 
   fn process_event(&mut self, args: &mut EventArgs) {
-    let delta = match args.event {
+    match args.event {
       Event::Key(key) => {
         let m = key.modifiers;
         match key.code {
-          KeyCode::Up => -1,
-          KeyCode::Down => 1,
+          KeyCode::Up => {
+            if self.items.shift(-1) {
+              args.commands.claim();
+              args.commands.broadcast(Box::new(PositionUpdate::<L> {
+                index: self.items.selection(),
+                _ph: PhantomData,
+              }))
+            }
+          }
+          KeyCode::Down => {
+            if self.items.shift(1) {
+              args.commands.claim();
+              args.commands.broadcast(Box::new(PositionUpdate::<L> {
+                index: self.items.selection(),
+                _ph: PhantomData,
+              }))
+            }
+          }
           KeyCode::Char('u') if m == KeyModifiers::CONTROL => {
-            -(args.rect.height as isize)
+            if self.items.shift(-(args.rect.height as isize)) {
+              args.commands.claim();
+              args.commands.broadcast(Box::new(PositionUpdate::<L> {
+                index: self.items.selection(),
+                _ph: PhantomData,
+              }))
+            }
           }
           KeyCode::Char('d') if m == KeyModifiers::CONTROL => {
-            args.rect.height as isize
+            if self.items.shift(args.rect.height as isize) {
+              args.commands.claim();
+              args.commands.broadcast(Box::new(PositionUpdate::<L> {
+                index: self.items.selection(),
+                _ph: PhantomData,
+              }))
+            }
           }
 
           KeyCode::Enter => {
-            if let Some(Some(item)) = self.items.get(self.index) {
+            if let Some(Some(item)) = self.items.selected() {
               if let Some(url) = self.list.url_of(item) {
                 args.commands.navigate_to(url);
                 args.commands.claim();
               }
             }
-            return;
           }
-          _ => return,
+          _ => {}
         }
       }
       Event::Mouse(m) => match m.kind {
-        MouseEventKind::ScrollUp => -1,
-        MouseEventKind::ScrollDown => 1,
+        MouseEventKind::ScrollUp => {
+          if self.items.shift(-1) {
+            args.commands.claim();
+            args.commands.broadcast(Box::new(PositionUpdate::<L> {
+              index: self.items.selection(),
+              _ph: PhantomData,
+            }))
+          }
+        }
+        MouseEventKind::ScrollDown => {
+          if self.items.shift(1) {
+            args.commands.claim();
+            args.commands.broadcast(Box::new(PositionUpdate::<L> {
+              index: self.items.selection(),
+              _ph: PhantomData,
+            }))
+          }
+        }
         MouseEventKind::Up(MouseButton::Left) => {
           if let Some(relative_y) = m.row.checked_sub(args.rect.y) {
             if let Some(&index) =
               self.rendered_items_by_y.get(relative_y as usize)
             {
-              self.index = index;
+              self.items.select(index);
               args.commands.broadcast(Box::new(PositionUpdate::<L> {
-                index: index,
+                index,
                 _ph: PhantomData,
               }))
             }
             args.commands.claim();
           }
-          return;
         }
-        // TODO: Implerment scroll-bar dragging.
-        _ => return,
+        // TODO: Implement scroll-bar dragging.
+        _ => {}
       },
-      _ => return,
+      _ => {}
     };
-
-    let new_idx = ((self.index as isize).saturating_add(delta).max(0) as usize)
-      .min(self.items.len().saturating_sub(1));
-
-    if self.index != new_idx {
-      self.index = new_idx;
-      args.commands.claim();
-      args.commands.broadcast(Box::new(PositionUpdate::<L> {
-        index: new_idx,
-        _ph: PhantomData,
-      }))
-    }
   }
 
   fn render(&mut self, args: &mut RenderArgs) {
@@ -146,7 +176,7 @@ where
 
     if self.items.is_empty() {
       match self.list.count(args.dex) {
-        Some(len) => self.items = vec![None; len],
+        Some(len) => self.items = vec![None; len].into(),
         None => {
           Spinner::new(args.frame_number)
             .style(style)
@@ -160,12 +190,9 @@ where
     // Load a reasonable number of elements within range of the current
     // selection, to minimize the chance that the user sees a loading screen
     // while scrolling slowly.
-    let height = args.rect.height as usize;
-    let range_lo = self.index.saturating_sub(height);
-    let range_hi = self
-      .index
-      .saturating_add(height)
-      .min(self.items.len().saturating_sub(1));
+    let height = args.rect.height as isize;
+    let range_lo = self.items.shifted_selection(-height);
+    let range_hi = self.items.shifted_selection(height);
 
     for (i, item) in self.items[range_lo..=range_hi].iter_mut().enumerate() {
       if item.is_none() {
@@ -206,7 +233,7 @@ where
       end += 1
     }
 
-    let selected = self.index.min(self.items.len() - 1);
+    let selected = self.items.selection();
     while selected >= end {
       height = height.saturating_add(list_items[end].height());
       end += 1;
@@ -238,7 +265,7 @@ where
       .skip(self.offset)
       .take(end - start)
     {
-      let is_selected = i == self.index;
+      let is_selected = i == self.items.selection();
       for (j, mut line) in item.lines.into_iter().enumerate() {
         self.rendered_items_by_y.push(i);
         let symbol = if j == 0 {
@@ -278,7 +305,8 @@ where
       }
     }
 
-    let ratio = self.index as f64 / (self.items.len().saturating_sub(1)) as f64;
+    let ratio = self.items.selection() as f64
+      / (self.items.len().saturating_sub(1)) as f64;
     ScrollBar::new(ratio)
       .style(style)
       .render(args.rect, args.output);
