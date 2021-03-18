@@ -45,4 +45,5 @@ pub use ty::Type;
 pub use version::Generation;
 
 pub use pokedex::PokedexName;
+pub use stat::StatName;
 pub use ty::TypeName;

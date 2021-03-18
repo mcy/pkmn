@@ -5,12 +5,12 @@ use serde::Serialize;
 
 use crate::api::Endpoint;
 use crate::model::berry::Flavor;
+use crate::model::resource::NamedResource;
 use crate::model::resource::Resource;
-use crate::model::stat::pokeathalon;
+use crate::model::stat::pokeathlon;
 use crate::model::stat::Stat;
 use crate::model::text::Localized;
 use crate::model::Percent;
-use crate::model::resource::NamedResource;
 
 text_field!(description: Desc);
 
@@ -27,35 +27,35 @@ pub struct Nature {
 
   /// The statistic that this nature causes to grow worse.
   #[serde(rename = "decreased_stat")]
-  pub decreases: NamedResource<Stat>,
+  pub decreases: Option<NamedResource<Stat>>,
   /// The statistic that this nature causes to grow better.
   #[serde(rename = "increased_stat")]
-  pub increases: NamedResource<Stat>,
+  pub increases: Option<NamedResource<Stat>>,
 
   /// The berry flavor Pokemon with this nature hate.
-  pub hates_flavor: Resource<Flavor>,
+  pub hates_flavor: Option<Resource<Flavor>>,
   /// The berry flavor Pokemon with this nature like.
-  pub likes_flavor: Resource<Flavor>,
+  pub likes_flavor: Option<Resource<Flavor>>,
 
   /// Pokeathlon stats affected by this nature.
-  #[serde(rename = "ppokeathalon_stat_changes")]
-  pub pokeathlon_stats: Vec<PokeathalonStatEffect>,
+  #[serde(rename = "pokeathlon_stat_changes")]
+  pub pokeathlon_stats: Vec<PokeathlonStatEffect>,
 
   /// How this nature affects a Pokemon's move preference in Emenerad's
   /// Battle Palace.
-  #[serde(rename = "move_battle_style_references")]
+  #[serde(rename = "move_battle_style_preferences")]
   pub battle_palace_preferences: Vec<BattlePalacePreference>,
 }
 
 /// How a particular nature can affect the growth of a Pokeathalon stat.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PokeathalonStatEffect {
+pub struct PokeathlonStatEffect {
   /// The delta applied by this nature.
   #[serde(rename = "max_change")]
   pub delta: i32,
   /// The stat affected.
-  #[serde(rename = "pokeathalon_stat")]
-  pub stat: Resource<pokeathalon::Stat>,
+  #[serde(rename = "pokeathlon_stat")]
+  pub stat: Resource<pokeathlon::Stat>,
 }
 
 /// How a particular nature affects a Pokemon's move preferences in Emerald's

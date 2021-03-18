@@ -9,8 +9,8 @@ use crate::model::mov::DamageClass;
 use crate::model::mov::Move;
 use crate::model::nature::Characteristic;
 use crate::model::nature::Nature;
-use crate::model::resource::Resource;
 use crate::model::resource::NameOf;
+use crate::model::resource::Resource;
 use crate::model::text::Localized;
 
 /// A Pokemon battle statistic.
@@ -48,13 +48,14 @@ pub struct Stat {
 well_known! {
   /// A name for a [`Stat`].
   #[allow(missing_docs)]
+  #[derive(PartialOrd, Ord)]
   pub enum StatName for Stat {
     /// Hit Points determine how much damage a Pokemon can take in battle.
     HitPoints => "hp",
     /// Attack determines the power of a Pokemon's physical moves.
     Attack => "attack",
     /// Defense determines the effectiveness of a physical move on a Pokemon.
-    Defence => "defence",
+    Defense => "defense",
     /// Special Attack determines the power of a Pokemon's special moves.
     SpAttack => "special-attack",
     /// Special Defense determines the effectiveness of a special move on a
@@ -102,8 +103,8 @@ impl Endpoint for Stat {
   const NAME: &'static str = "stat";
 }
 
-pub mod pokeathalon {
-  //! Statistics used in the HeartGold and SoulSilver-exclusive Pokeathalon.
+pub mod pokeathlon {
+  //! Statistics used in the HeartGold and SoulSilver-exclusive Pokeathlon.
 
   use super::*;
 
