@@ -118,6 +118,8 @@ impl<A> FromIterator<A> for SelectedVec<A> {
 
 /// Returns true if `rect` contains the point at `x` and `y`.
 pub fn rect_contains(rect: Rect, x: u16, y: u16) -> bool {
-  rect.x <= x && x < rect.x.saturating_add(rect.width) &&
-  rect.y <= y && y < rect.y.saturating_add(rect.height)
+  rect.x <= x
+    && x < rect.x.saturating_add(rect.width)
+    && rect.y <= y
+    && y < rect.y.saturating_add(rect.height)
 }

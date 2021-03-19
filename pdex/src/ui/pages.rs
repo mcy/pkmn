@@ -15,6 +15,7 @@ use crate::ui::component::list::Listing;
 use crate::ui::component::pokedex::Pokedex;
 use crate::ui::component::pokedex::PokedexDetail;
 use crate::ui::component::pokedex::PokedexSprite;
+use crate::ui::component::pokedex::PokemonBasics;
 use crate::ui::component::pokedex::TypeLink;
 use crate::ui::component::stack::Dir;
 use crate::ui::component::stack::Stack;
@@ -130,10 +131,18 @@ pub fn get() -> Handler {
           n.add(PokedexSprite::new(default_name))
             .stack(Dir::Vertical, |n| {
               n.stack(Dir::Horizontal, |n| {
-                n.add(TypeLink(first));
+                n.add_constrained(
+                  Constraint::Min(12),
+                  PokemonBasics::new(
+                    Arc::clone(&species),
+                    Arc::clone(&pokemon),
+                    number,
+                  ),
+                );
+                n.add_constrained(Constraint::Length(1), Empty)
+                  .add(TypeLink(first));
                 if let Some(second) = second {
-                  n.add_constrained(Constraint::Length(2), Empty)
-                    .add(TypeLink(second));
+                  n.add(TypeLink(second));
                 }
               })
               .add(StatsView::new(Arc::clone(&pokemon)));

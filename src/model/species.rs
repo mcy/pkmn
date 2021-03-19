@@ -371,9 +371,9 @@ pub enum GenderRatio {
   /// All-male species.
   AllMale,
   /// One female for every seven males.
-  SomeFemales,
-  /// One female for every three males.
   FewFemales,
+  /// One female for every three males.
+  SomeFemales,
   /// Even gender ratio.
   Even,
   /// One male for every three females.
@@ -390,8 +390,8 @@ impl From<GenderRatio> for i8 {
   fn from(r: GenderRatio) -> Self {
     match r {
       GenderRatio::AllMale => 0,
-      GenderRatio::SomeFemales => 1,
-      GenderRatio::FewFemales => 2,
+      GenderRatio::FewFemales => 1,
+      GenderRatio::SomeFemales => 2,
       GenderRatio::Even => 4,
       GenderRatio::SomeMales => 6,
       GenderRatio::FewMales => 7,

@@ -11,9 +11,9 @@ use pkmn::model::Pokemon;
 use pkmn::model::StatName;
 
 use crossterm::event::KeyCode;
+use crossterm::event::MouseButton;
 use crossterm::event::MouseEvent;
 use crossterm::event::MouseEventKind;
-use crossterm::event::MouseButton;
 
 use tui::layout::Rect;
 use tui::text::Span;
@@ -23,8 +23,8 @@ use crate::ui::component::Component;
 use crate::ui::component::Event;
 use crate::ui::component::EventArgs;
 use crate::ui::component::RenderArgs;
-use crate::util::SelectedVec;
 use crate::util::rect_contains;
+use crate::util::SelectedVec;
 
 /// A view of a Pokemon's battle statistics, including its base stats and
 /// a built in IV/EV calculator.
@@ -178,7 +178,7 @@ impl Component for StatsView {
           // Don't reset to zero if we start erasing entries on a new cell.
           self.edit_in_progress = true;
           self.modify_selected_value(|val| val / 10);
-            args.commands.claim();
+          args.commands.claim();
         }
         KeyCode::Char(c) => match c {
           '0'..='9' => {
@@ -201,9 +201,9 @@ impl Component for StatsView {
           let val = (|| {
             for (i, stat) in self.stats.iter().enumerate() {
               if rect_contains(stat.iv_rect, m.column, m.row) {
-                return Some((StatFocusType::Iv, Some(i)))
+                return Some((StatFocusType::Iv, Some(i)));
               } else if rect_contains(stat.ev_rect, m.column, m.row) {
-                return Some((StatFocusType::Ev, Some(i)))
+                return Some((StatFocusType::Ev, Some(i)));
               }
             }
             None
@@ -237,7 +237,8 @@ impl Component for StatsView {
             args.commands.claim();
           }
           MouseEventKind::ScrollDown => {
-            self.edit_in_progress = true;self.focus_type = focus;
+            self.edit_in_progress = true;
+            self.focus_type = focus;
             if let Some(line) = line {
               self.stats.select(line);
             }
@@ -245,7 +246,8 @@ impl Component for StatsView {
             args.commands.claim();
           }
           MouseEventKind::ScrollUp => {
-            self.edit_in_progress = true;self.focus_type = focus;
+            self.edit_in_progress = true;
+            self.focus_type = focus;
             if let Some(line) = line {
               self.stats.select(line);
             }
@@ -528,16 +530,20 @@ impl Component for StatsView {
     }
 
     let nature = Span::styled(
-      format!("{:>8}", nature
-        .localized_names
-        .get(LanguageName::English)
-        .unwrap_or("???")),
+      format!(
+        "{:>8}",
+        nature
+          .localized_names
+          .get(LanguageName::English)
+          .unwrap_or("???")
+      ),
       focus_style(StatFocusType::Nature, true),
     );
     let padding = args.rect.width.saturating_sub(nature.width() as u16);
     let width = args.rect.width - padding;
-    self.nature_rect = Rect::new(args.rect.x + padding, args.rect.y + 7, width, 1);
-    
+    self.nature_rect =
+      Rect::new(args.rect.x + padding, args.rect.y + 7, width, 1);
+
     if args.rect.height >= 8 {
       args.output.set_span(
         self.nature_rect.x,

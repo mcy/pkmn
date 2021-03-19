@@ -6,8 +6,10 @@ use std::iter;
 use std::sync::Arc;
 
 use pkmn::model::resource::Name;
+use pkmn::model::species::GenderRatio;
 use pkmn::model::LanguageName;
 use pkmn::model::PokedexName;
+use pkmn::model::Pokemon;
 use pkmn::model::Species;
 use pkmn::model::Type;
 use pkmn::model::TypeName;
@@ -144,6 +146,81 @@ impl Component for PokedexSprite {
     let mut png = Png::new(blob);
     png.render(args);
     self.png = Some(png);
+  }
+}
+/// A component that displays basic Pokemon information, including name,
+/// number, genus, height, and weight.
+#[derive(Clone, Debug)]
+pub struct PokemonBasics {
+  species: Arc<Species>,
+  pokemon: Arc<Pokemon>,
+  number: u32,
+}
+
+impl PokemonBasics {
+  pub fn new(
+    species: Arc<Species>,
+    pokemon: Arc<Pokemon>,
+    number: u32,
+  ) -> Self {
+    Self {
+      species,
+      pokemon,
+      number,
+    }
+  }
+}
+
+impl Component for PokemonBasics {
+  fn render(&mut self, args: &mut RenderArgs) {
+    let name = self
+      .species
+      .localized_names
+      .get(LanguageName::English)
+      .unwrap_or("???");
+    let genus = self
+      .species
+      .genus
+      .get(LanguageName::English)
+      .unwrap_or("???");
+
+    let (feet, inches) = self.pokemon.height.feet_inches();
+    let pounds = self.pokemon.weight.pounds();
+
+    let gender_ratio = match self.species.gender_ratio {
+      GenderRatio::AllMale => "All Males",
+      GenderRatio::FewFemales => "7:1 M:F",
+      GenderRatio::SomeFemales => "3:1 M:F",
+      GenderRatio::Even => "1:1 M:F",
+      GenderRatio::SomeMales => "1:3 M:F",
+      GenderRatio::FewMales => "1:7 M:F",
+      GenderRatio::AllFemale => "All Females",
+      GenderRatio::Genderless => "Genderless",
+    };
+
+    let text = Text::from(vec![
+      Spans(vec![Span::styled(
+        format!("#{:03} {} - {}", self.number, name, genus),
+        args.style_sheet.unfocused,
+      )]),
+      // TODO: user-controled units.
+      Spans(vec![Span::styled(
+        format!(
+          "H: {}'{}\", W: {:.1} lb, {}",
+          feet, inches, pounds, gender_ratio
+        ),
+        args.style_sheet.unfocused,
+      )]),
+      Spans(vec![Span::styled(
+        format!(
+          "Catch: {}, Exp: {}",
+          self.species.capture_rate, self.pokemon.base_experience
+        ),
+        args.style_sheet.unfocused,
+      )]),
+    ]);
+
+    Paragraph::new(text).render(args);
   }
 }
 
@@ -344,7 +421,10 @@ impl Listable for Pokedex {
       .first_type
       .localized_names
       .get(LanguageName::English)
-      .unwrap_or("???").chars().take(3).collect::<String>();
+      .unwrap_or("???")
+      .chars()
+      .take(3)
+      .collect::<String>();
 
     spans.0.push(Span::styled(
       first_type_name,
@@ -359,7 +439,10 @@ impl Listable for Pokedex {
       let second_type_name = second_type
         .localized_names
         .get(LanguageName::English)
-        .unwrap_or("???").chars().take(3).collect::<String>();
+        .unwrap_or("???")
+        .chars()
+        .take(3)
+        .collect::<String>();
       spans.0.push(Span::raw("·"));
       spans.0.push(Span::styled(
         second_type_name,
