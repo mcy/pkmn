@@ -4,6 +4,8 @@ use std::iter::FromIterator;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
+use tui::layout::Rect;
+
 /// A vector with a specifically selected element.
 ///
 /// This type is primarially used to implement scrolling selections through
@@ -112,4 +114,10 @@ impl<A> FromIterator<A> for SelectedVec<A> {
   {
     Vec::<A>::from_iter(iter).into()
   }
+}
+
+/// Returns true if `rect` contains the point at `x` and `y`.
+pub fn rect_contains(rect: Rect, x: u16, y: u16) -> bool {
+  rect.x <= x && x < rect.x.saturating_add(rect.width) &&
+  rect.y <= y && y < rect.y.saturating_add(rect.height)
 }
