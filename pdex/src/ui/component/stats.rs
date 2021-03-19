@@ -457,7 +457,7 @@ impl Component for StatsView {
         .map(|n| n.is(variant))
         .unwrap_or(false)
       {
-        (1.1, "-")
+        (0.9, "-")
       } else {
         (1.0, " ")
       };
