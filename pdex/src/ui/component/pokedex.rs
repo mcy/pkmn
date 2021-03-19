@@ -344,7 +344,7 @@ impl Listable for Pokedex {
       .first_type
       .localized_names
       .get(LanguageName::English)
-      .unwrap_or("???");
+      .unwrap_or("???").chars().take(3).collect::<String>();
 
     spans.0.push(Span::styled(
       first_type_name,
@@ -359,8 +359,8 @@ impl Listable for Pokedex {
       let second_type_name = second_type
         .localized_names
         .get(LanguageName::English)
-        .unwrap_or("???");
-      spans.0.push(Span::raw(" · "));
+        .unwrap_or("???").chars().take(3).collect::<String>();
+      spans.0.push(Span::raw("·"));
       spans.0.push(Span::styled(
         second_type_name,
         Style::default().fg(

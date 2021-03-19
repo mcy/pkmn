@@ -81,7 +81,7 @@ pub fn get() -> Handler {
         )
         .add_constrained(Constraint::Length(1), Empty)
         .add_constrained(
-          Constraint::Length(40),
+          Constraint::Length(30),
           Listing::new(Pokedex(pokedex)),
         );
       }))
